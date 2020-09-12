@@ -1,6 +1,37 @@
-#include "server.h"
 #include "crypto.h"
 #include "aes/aes_ctr.c"
+
+void concatenate(unsigned char * dest, unsigned char * src, int start, int length)
+{
+	int i;
+	for (i = 0; i < length; i++)
+		dest[i+start] = src[i];
+}
+
+/* return 0 if equal, 1 if different */
+int compare_mac(unsigned char * mac1, unsigned char * mac2, int length)
+{
+	int i, different = 0;
+	for (i = 0; i < length && !different; i++)
+		if (mac1[i] != mac2[i])
+			different = 1;
+	return different;
+}
+
+// Read key from aes.key file
+void read_key(unsigned char * key, char * key_file)
+{
+	FILE *fin;
+
+	fin = fopen(key_file, "r");
+	if (fin != NULL)
+	{
+		fread(key, KEY_SIZE, 1, fin);
+		fclose(fin);
+	}
+	else
+		printf("Error reading key.\n");
+}
 
 void init_ctr_state (ctr_state * state, unsigned char iv[AES_BLOCK_SIZE], unsigned char key_bytes[KEY_SIZE])
 {

@@ -24,6 +24,9 @@ typedef struct
 	unsigned char ecount_buf[AES_BLOCK_SIZE];
 } ctr_state;
 
+void concatenate(unsigned char * dest, unsigned char * src, int start, int length);
+int compare_mac(unsigned char * mac1, unsigned char * mac2, int length);
+void read_key(unsigned char * key, char * key_file);
 void encrypt(char * input_file, char * output_file, char * key_file, char * mac_file);
 int ctr_encryption(unsigned char * plaintext, int size, unsigned char * iv, unsigned char * ciphertext, unsigned char * key_bytes);
 void decrypt(char * input_file, char * output_file, char * key_file, char * mac_file);

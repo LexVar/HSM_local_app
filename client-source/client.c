@@ -2,10 +2,18 @@
 #include "pipe.h"
 #include "protocol.h"
 
+int pipe_fd;
+
 int main()
 {
 	// Opens the pipe for writing
-	int pipe_fd, op, bytes;
+	int op, bytes;
+
+	/* request structure */
+	struct composed_request request;
+
+	/* response structure */
+	struct composed_response response;
 
 	// Do some work
 	while (1) {
@@ -38,6 +46,9 @@ int main()
 			continue;
 		}
 
+		/* set request attributes */
+		request.request.type = op;
+
 		if ((pipe_fd = open(PIPE_NAME, O_WRONLY)) < 0) {
 			perror("[CLIENT] Cannot open pipe for writing: ");
 			exit(0);
@@ -45,29 +56,53 @@ int main()
 
 		printf("[CLIENT] Sending %d operation\n", op);
 
-		if ((bytes = write(pipe_fd, &op, sizeof(op))) == -1) {
+		if ((bytes = write(pipe_fd, &request, sizeof(request))) == -1) {
 			perror("[CLIENT] Error writing to pipe: ");
 			close(pipe_fd);
 			exit(0);
 		}
-
 		close(pipe_fd);
+
+		switch (request.request.type)
+		{
+			case 1:
+				break;
+			case 2:
+				break;
+			case 3:
+				break;
+			case 4:
+				break;
+			case 0:
+				printf("[SERVER] Stopping server..\n");
+				exit(0);
+				break;
+			default:
+				printf("Wrong choice, try again\n");
+		}
 
 		if ((pipe_fd = open(PIPE_NAME, O_RDONLY)) < 0) {
 			perror("[CLIENT] Cannot open pipe for reading: ");
 			exit(0);
 		}
 
-		if ((bytes = read(pipe_fd, &op, sizeof(op))) == -1) {
+		if ((bytes = read(pipe_fd, &response, sizeof(response))) == -1) {
 			perror("[CLIENT] Error reading from pipe: ");
 			close(pipe_fd);
 			exit(0);
 		}
-		printf("[CLIENT] Received operation %d result\n", op);
+		printf("[CLIENT] Received operation %d result with status %d\n", response.response.type, response.response.status);
 
 		close(pipe_fd);
 
 		sleep(2);
 	}
 	return 0;
+}
+
+
+void cleanup()
+{
+	/* place all cleanup operations here */
+	close(pipe_fd);
 }

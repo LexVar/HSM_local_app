@@ -5,4 +5,6 @@
 #include <stdlib.h>
 #include <string.h>
 
+void cleanup();
+
 #endif 

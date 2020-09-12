@@ -1,5 +1,4 @@
 keys/*
 messages/*
-server
-client
+*.bin
 *.swp
