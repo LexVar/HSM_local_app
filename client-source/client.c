@@ -1,6 +1,6 @@
 #include "client.h"
-#include "pipe.h"
-#include "protocol.h"
+#include "../pipe.h"
+#include "../protocol.h"
 
 int pipe_fd;
 

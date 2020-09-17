@@ -1,7 +1,7 @@
 #include "server.h"
-#include "protocol.h"
+#include "../protocol.h"
 #include "crypto/crypto.h"
-#include "pipe.h"
+#include "../pipe.h"
 
 /* pipe file descriptor */
 int pipe_fd;
