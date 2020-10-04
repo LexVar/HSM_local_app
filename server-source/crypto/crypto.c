@@ -1,6 +1,65 @@
 #include "crypto.h"
 #include "aes/aes_ctr.c"
 
+void init_crypto_state ()
+{
+	OpenSSL_add_all_algorithms();
+	OpenSSL_add_all_ciphers();
+	ERR_load_crypto_strings();
+}
+
+// Returns number of bytes encrypted
+int encrypt_private (unsigned char * from, int flen, unsigned char * to)
+{
+	RSA * rsa = RSA_new();
+	FILE * f = fopen("Alice/Alice.pem", "r");
+	void * result;
+	int bytes = -1;
+
+	if (f != NULL)
+	{
+		// Read private key file
+		result = PEM_read_RSAPrivateKey(f, &rsa, NULL, NULL);
+		fclose(f);
+
+		if (result == NULL)
+			printf ("Error reading private key.\n");
+		else
+		{
+			// Sign with private key
+			bytes = RSA_private_encrypt(flen, from, to, rsa, RSA_PKCS1_PADDING);
+			if (bytes == -1)
+				printf("Error signing with private key..\n");
+		}
+	}
+	RSA_free(rsa);
+	return bytes;
+}
+
+// Return number of bytes decrypted
+int decrypt_public(int bytes, unsigned char * from, unsigned char * to)
+{
+	RSA * rsa = RSA_new();
+	FILE * f = fopen("Alice/Alice.pub", "r");
+	void * result;
+
+	if (f != NULL)
+	{
+		// Read public key
+		// use PEM_read_RSA_PUBKEY instead of PEM_read_RSAPublicKey -> key format
+		result = PEM_read_RSA_PUBKEY(f, &rsa, NULL, NULL);
+		fclose(f);
+
+		if (result == NULL)
+			printf ("Error reading public key.\n");
+		// Decrypt with public key, verifies signature
+		else
+			bytes = RSA_public_decrypt(bytes, from, to, rsa, RSA_PKCS1_PADDING);
+	}
+	RSA_free(rsa);
+	return bytes;
+}
+
 void concatenate(unsigned char * dest, unsigned char * src, int start, int length)
 {
 	int i;

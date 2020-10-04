@@ -7,6 +7,11 @@
 #include <openssl/rand.h>
 #include <openssl/hmac.h>
 #include <openssl/err.h>
+#include <openssl/evp.h>
+#include <openssl/evperr.h>
+#include <openssl/modes.h>
+#include <openssl/rsa.h>
+#include <openssl/pem.h>
 
 #define SIZE 99
 // Key size - 128 bit
@@ -24,6 +29,9 @@ typedef struct
 	unsigned char ecount_buf[AES_BLOCK_SIZE];
 } ctr_state;
 
+void init_crypto_state ();
+int encrypt_private (unsigned char * from, int flen, unsigned char * to);
+int decrypt_public (int bytes, unsigned char * from, unsigned char * to);
 void concatenate(unsigned char * dest, unsigned char * src, int start, int length);
 int compare_mac(unsigned char * mac1, unsigned char * mac2, int length);
 void read_key(unsigned char * key, char * key_file);

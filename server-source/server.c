@@ -15,11 +15,11 @@ struct composed_response response;
 int main (void)
 {
 	int bytes;
-	OpenSSL_add_all_algorithms();
-	OpenSSL_add_all_ciphers();
-	ERR_load_crypto_strings();
 
-	// Redirects SIGINT (CTRL-V) to sigint()
+	// load cryptography libraries
+	init_crypto_state();
+
+	// Redirects SIGINT (CTRL-c) to sigint()
 	signal(SIGINT, cleanup);
 
 	// Creates the named pipe if it doesn't exist yet
@@ -29,39 +29,11 @@ int main (void)
                 exit(0);
         }
 
-		/* 2. Change PIN\n"); */
-		/* 3. Encrypt and authenticate message\n"); */
-		/* 4. Decrypt and authenticate message\n"); */
-		/* 5. Sign message\n"); */
-		/* 6. Verify message signature\n"); */
-		/* 7. Import public key\n"); */
-		/* 8. Share symmetric key\n"); */
-		/* 9. Save shared symmetric key\n"); */
-		/* 0. Quit\n"); */
-
-		/* 1-cifrar mensagem\n"); */
-		/* 2-decifrar mensagem\n"); */
-		/* 3-nova chave para cifra\n"); */
-		/* 4-nova chave para mac\n"); */
-		/* 0-sair\n\nSelect Option: "); */
-
 	while(1)
 	{
 		/* --------------------------------------------------- */
 		/* Receive request from client */
-
-		if ((pipe_fd = open(PIPE_NAME, O_RDONLY)) < 0) {
-			perror("[SERVER] Cannot open pipe for reading: ");
-			exit(0);
-		}
-
-		if ((bytes = read(pipe_fd, &request, sizeof(request))) == -1) {
-			perror("[SERVER] Error reading from pipe: ");
-			close(pipe_fd);
-			exit(0);
-		}
-
-		close(pipe_fd);
+		receive_from_connection(&request);
 
 		printf("[SERVER] Received Operation %d....\n", request.request.type);
 
@@ -81,17 +53,41 @@ int main (void)
 		/* Perform operation */
 		switch (request.request.type)
 		{
-			case 1:
-				encrypt("messages/text.msg", "messages/out.enc", "keys/aes.key", "keys/mac.key");
-				break;
-			case 2:
-				decrypt("messages/out.enc", "messages/original.msg", "keys/aes.key", "keys/mac.key");
-				break;
 			case 3:
-				new_key("keys/aes.key");
+				write_to_file ("messages/text.msg", request.msg_req.msg, request.msg_req.msg_size);
+				printf ("[SERVER] message to encrypt: \"%s\"\n", request.msg_req.msg);
+				encrypt("messages/text.msg", "messages/out.enc", "keys/aes.key", "keys/mac.key");
+				read_from_file ("messages/out.enc", request.msg_req.msg, request.msg_req.msg_size);
+				// TODO - Set status according to operation success
+				response.response.status = 0;
 				break;
 			case 4:
-				new_key("keys/mac.key");
+				write_to_file ("messages/out.enc", request.msg_req.msg, request.msg_req.msg_size);
+				decrypt("messages/out.enc", "messages/original.msg", "keys/aes.key", "keys/mac.key");
+				read_from_file ("messages/original.msg", request.msg_req.msg, request.msg_req.msg_size);
+				// TODO - Set status according to operation success
+				response.response.status = 0;
+				break;
+			case 5:
+				// Encrypt(sign) with private key
+				// bytes = encrypt_private(enc_out, msg_size, signature);
+				break;
+			case 6:
+				// Verify signature
+				// bytes = decrypt_public(bytes, signature, to);
+
+				// if (bytes == -1)
+				// {
+				//         response.response.status = -1;
+				//         printf ("Error verifying signature..\n");
+				//         break;
+				// }
+				// else
+				//         printf("Signature verified..\n");
+			case 7:
+				// Import public key
+			case 8:
+				new_key("keys/aes.key");
 				break;
 			case 0:
 				printf("[SERVER] Stopping server..\n");
@@ -104,28 +100,84 @@ int main (void)
 
 		printf("\n[SERVER] Op %d done\n\n", request.request.type);
 
-		/* --------------------------------------------------- */
-		/* Send response back to client */
-
-		if ((pipe_fd = open(PIPE_NAME, O_WRONLY)) < 0) {
-			perror("[SERVER] Cannot open pipe for writing: ");
-			exit(0);
-		}
-
 		/* set requests attributes */
-		response.response.status = 0;
 		response.response.type = request.request.type;
 
-		if ((bytes = write(pipe_fd, &response, sizeof(response))) == -1) {
-			perror("[SERVER] Error writing to pipe: ");
-			close(pipe_fd);
-			exit(0);
-		}
+		/* --------------------------------------------------- */
+		/* Send response back to client */
+		send_to_connection(&response);
 
-		close(pipe_fd);
+		sleep (2);
 	}
 
 	return 0;
+}
+
+void receive_from_connection (struct composed_request * request)
+{
+	int bytes;
+
+	if ((pipe_fd = open(PIPE_NAME, O_RDONLY)) < 0) {
+		perror("[SERVER] Cannot open pipe for reading: ");
+		exit(0);
+	}
+
+	if ((bytes = read(pipe_fd, request, sizeof(struct composed_request))) == -1) {
+		perror("[SERVER] Error reading from pipe: ");
+		close(pipe_fd);
+		exit(0);
+	}
+
+	close(pipe_fd);
+
+}
+
+void send_to_connection (struct composed_response * response)
+{
+	int bytes;
+
+	if ((pipe_fd = open(PIPE_NAME, O_WRONLY)) < 0) {
+		perror("[SERVER] Cannot open pipe for writing: ");
+		exit(0);
+	}
+
+	if ((bytes = write(pipe_fd, response, sizeof(struct composed_response))) == -1) {
+		perror("[SERVER] Error writing to pipe: ");
+		close(pipe_fd);
+		exit(0);
+	}
+
+	close(pipe_fd);
+}
+
+void * write_to_file (char * filename, char * content, int fsize)
+{
+	FILE *f = fopen(filename, "wb");
+
+	if (f != NULL)
+	{
+		fwrite(content, 1, fsize, f);
+		fclose(f);
+
+		content[fsize] = 0;
+	}
+
+	return f;
+}
+
+void * read_from_file (char * filename, char * content, int fsize)
+{
+	FILE *f = fopen(filename, "rb");
+
+	if (f != NULL)
+	{
+		fread(content, 1, fsize, f);
+		fclose(f);
+
+		content[fsize] = 0;
+	}
+
+	return f;
 }
 
 // Generates new AES key, saves to aes.key file
@@ -158,6 +210,9 @@ void print_hexa(unsigned char * string, int length)
 
 void cleanup()
 {
+	printf ("[SERVER] Received SIGINT, shutting down server after cleanup\n");
+
 	/* place all cleanup operations here */
 	close(pipe_fd);
+	exit(0);
 }
