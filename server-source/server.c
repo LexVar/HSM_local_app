@@ -57,14 +57,14 @@ int main (void)
 				write_to_file ("messages/text.msg", request.msg_req.msg, request.msg_req.msg_size);
 				printf ("[SERVER] message to encrypt: \"%s\"\n", request.msg_req.msg);
 				encrypt("messages/text.msg", "messages/out.enc", "keys/aes.key", "keys/mac.key");
-				read_from_file ("messages/out.enc", request.msg_req.msg, request.msg_req.msg_size);
+				response.msg_res.msg_size = read_from_file ("messages/out.enc", request.msg_req.msg);
 				// TODO - Set status according to operation success
 				response.response.status = 0;
 				break;
 			case 4:
 				write_to_file ("messages/out.enc", request.msg_req.msg, request.msg_req.msg_size);
 				decrypt("messages/out.enc", "messages/original.msg", "keys/aes.key", "keys/mac.key");
-				read_from_file ("messages/original.msg", request.msg_req.msg, request.msg_req.msg_size);
+				response.msg_res.msg_size = read_from_file ("messages/original.msg", request.msg_req.msg);
 				// TODO - Set status according to operation success
 				response.response.status = 0;
 				break;
@@ -148,36 +148,6 @@ void send_to_connection (struct composed_response * response)
 	}
 
 	close(pipe_fd);
-}
-
-void * write_to_file (char * filename, char * content, int fsize)
-{
-	FILE *f = fopen(filename, "wb");
-
-	if (f != NULL)
-	{
-		fwrite(content, 1, fsize, f);
-		fclose(f);
-
-		content[fsize] = 0;
-	}
-
-	return f;
-}
-
-void * read_from_file (char * filename, char * content, int fsize)
-{
-	FILE *f = fopen(filename, "rb");
-
-	if (f != NULL)
-	{
-		fread(content, 1, fsize, f);
-		fclose(f);
-
-		content[fsize] = 0;
-	}
-
-	return f;
 }
 
 // Generates new AES key, saves to aes.key file

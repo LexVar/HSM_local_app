@@ -36,13 +36,13 @@ int main()
 
 		flush_stdin();
 
-		/* ------------------------------	 */
-		/* set request attributes */
+		// ------------------------------
+		// set request attributes
 		request.request.type = op;
 
 		switch (request.request.type)
 		{
-			/* CHANGE PIN TODO */
+			// CHANGE PIN TODO
 			case 2:
 				break;
 			case 3:
@@ -53,7 +53,7 @@ int main()
 					printf ("[CLIENT] Error reading message from input, try again..\n");
 					continue;
 				}
-				request.msg_req.msg_size = strlen(request.msg_req.msg);
+				// request.msg_req.msg_size = strlen(request.msg_req.msg);
 
 				break;
 			case 4:
@@ -68,16 +68,16 @@ int main()
 				continue;
 		}
 
-		/* ---------------------------------------------------- */
-		/* Send the request */
+		// ----------------------------------------------------
+		// Send the request
 		send_to_connection(&request);
 
-		/* ---------------------------------------------------- */
-		/* Receiving the response */
+		// ----------------------------------------------------
+		// Receiving the response
 		receive_from_connection(&response);
 
-		/* ---------------------------------------------------- */
-		/* Treat the response */
+		// ----------------------------------------------------
+		// Treat the response
 		if (response.response.status == -1)
 		{
 			printf ("[CLIENT] Some error ocurred on the server performing the operation\n");
@@ -86,7 +86,7 @@ int main()
 		{
 			switch (request.request.type)
 			{
-				/* CHANGE PIN TODO */
+				// CHANGE PIN TODO
 				case 2:
 					break;
 				case 3:

@@ -4,6 +4,7 @@
 #define MSG_SIZE 65536
 #define SIGNATURE_SIZE 32
 #define ID_SIZE 10
+#define PIN_SIZE 4
 #define KEY_SIZE 16
 #define PUBKEY_SIZE 16
 
@@ -19,10 +20,11 @@ struct base_response {
 };
 
 struct auth_request {
-	int pin;
+	char pin[PIN_SIZE];
 };
 
 struct auth_reponse {
+	// char session_id[32];
 };
 
 struct admin_request {
