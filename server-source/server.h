@@ -6,10 +6,10 @@
 #include <string.h>
 #include <signal.h>
 #include "../protocol.h"
-#include "../functions.h"
+#include "../functions.c"
 
-void receive_from_connection (struct composed_request * request);
-void send_to_connection (struct composed_response * response);
+void receive_from_connection (struct request * request);
+void send_to_connection (struct response * response);
 void new_key(char * key_file);
 void read_key(unsigned char * key, char * key_file);
 void print_hexa(unsigned char * string, int length);

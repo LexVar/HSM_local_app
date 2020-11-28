@@ -5,10 +5,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include "../protocol.h"
-#include "../functions.h"
+#include "../functions.c"
 
-void send_to_connection (struct composed_request * request);
-void receive_from_connection (struct composed_response * response);
+void send_to_connection (struct request * request);
+void receive_from_connection (struct response * response);
 void flush_stdin ();
 void cleanup();
 

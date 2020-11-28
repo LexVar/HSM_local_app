@@ -1,6 +1,3 @@
-#ifndef FUNCTIONS_H
-#define FUNCTIONS_H
-
 #include <stdio.h>
 
 void * write_to_file (char * filename, char * content, int fsize)
@@ -40,5 +37,3 @@ int read_from_file (char * filename, char * content)
 
 	return fsize;
 }
-
-#endif 

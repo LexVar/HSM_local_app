@@ -10,5 +10,4 @@
 
 #define PIPE_NAME "connection"
 
-
 #endif 

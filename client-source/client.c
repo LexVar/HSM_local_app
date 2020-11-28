@@ -6,10 +6,10 @@
 int pipe_fd;
 
 /* request structure */
-struct composed_request request;
+struct request req;
 
 /* response structure */
-struct composed_response response;
+struct response resp;
 
 int main()
 {
@@ -38,9 +38,9 @@ int main()
 
 		// ------------------------------
 		// set request attributes
-		request.request.type = op;
+		req.base.op_code = op;
 
-		switch (request.request.type)
+		switch (req.base.op_code)
 		{
 			// CHANGE PIN TODO
 			case 2:
@@ -48,7 +48,7 @@ int main()
 			case 3:
 				printf("Enter the message: ");
 
-				if (fgets(request.msg_req.msg, MSG_SIZE, stdin) == NULL)
+				if (fgets(req.data.data, DATA_SIZE, stdin) == NULL)
 				{
 					printf ("[CLIENT] Error reading message from input, try again..\n");
 					continue;
@@ -70,31 +70,31 @@ int main()
 
 		// ----------------------------------------------------
 		// Send the request
-		send_to_connection(&request);
+		send_to_connection(&req);
 
 		// ----------------------------------------------------
 		// Receiving the response
-		receive_from_connection(&response);
+		receive_from_connection(&resp);
 
 		// ----------------------------------------------------
 		// Treat the response
-		if (response.response.status == -1)
+		if (resp.base.status == -1)
 		{
 			printf ("[CLIENT] Some error ocurred on the server performing the operation\n");
 		}
 		else
 		{
-			switch (request.request.type)
+			switch (req.base.op_code)
 			{
 				// CHANGE PIN TODO
 				case 2:
 					break;
 				case 3:
-					printf ("[CLIENT] Encrypted message: \"%s\"\n", response.msg_res.msg);
+					printf ("[CLIENT] Encrypted message: \"%s\"\n", resp.data.data);
 
 					break;
 				case 4:
-					printf ("[CLIENT] Decrypted message: \"%s\"\n", response.msg_res.msg);
+					printf ("[CLIENT] Decrypted message: \"%s\"\n", resp.data.data);
 
 					break;
 				default:
@@ -108,7 +108,7 @@ int main()
 	return 0;
 }
 
-void send_to_connection (struct composed_request * request)
+void send_to_connection (struct request * request)
 {
 	int bytes;
 
@@ -117,9 +117,9 @@ void send_to_connection (struct composed_request * request)
 		exit(0);
 	}
 
-	printf("[CLIENT] Sending %d operation\n", request->request.type);
+	printf("[CLIENT] Sending %d operation\n", request->base.op_code);
 
-	if ((bytes = write(pipe_fd, request, sizeof(struct composed_request))) == -1) {
+	if ((bytes = write(pipe_fd, request, sizeof(struct request))) == -1) {
 		perror("[CLIENT] Error writing to pipe: ");
 		close(pipe_fd);
 		exit(0);
@@ -127,7 +127,7 @@ void send_to_connection (struct composed_request * request)
 	close(pipe_fd);
 }
 
-void receive_from_connection (struct composed_response * response)
+void receive_from_connection (struct response * response)
 {
 	int bytes;
 
@@ -136,12 +136,12 @@ void receive_from_connection (struct composed_response * response)
 		exit(0);
 	}
 
-	if ((bytes = read(pipe_fd, response, sizeof(struct composed_response))) == -1) {
+	if ((bytes = read(pipe_fd, response, sizeof(struct response))) == -1) {
 		perror("[CLIENT] Error reading from pipe: ");
 		close(pipe_fd);
 		exit(0);
 	}
-	printf("[CLIENT] Received operation %d result with status %d\n", response->response.type, response->response.status);
+	printf("[CLIENT] Received operation %d result with status %d\n", response->base.op_code, response->base.status);
 
 	close(pipe_fd);
 }

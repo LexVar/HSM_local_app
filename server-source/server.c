@@ -7,10 +7,10 @@
 int pipe_fd;
 
 /* request structure */
-struct composed_request request;
+struct request req;
 
 /* response structure */
-struct composed_response response;
+struct response resp;
 
 int main (void)
 {
@@ -33,40 +33,40 @@ int main (void)
 	{
 		/* --------------------------------------------------- */
 		/* Receive request from client */
-		receive_from_connection(&request);
+		receive_from_connection(&req);
 
-		printf("[SERVER] Received Operation %d....\n", request.request.type);
+		printf("[SERVER] Received Operation %d....\n", req.base.op_code);
 
-		if (request.request.type == 0)
+		if (req.base.op_code == 0)
 		{
 			printf("\n[SERVER] Quitting...\n");
 			break;
 		}
-		else if (request.request.type < 2 || request.request.type > 9)
+		else if (req.base.op_code < 2 || req.base.op_code > 9)
 		{
-			printf("\n[SERVER] %d. Is not a valid operation\n", request.request.type);
+			printf("\n[SERVER] %d. Is not a valid operation\n", req.base.op_code);
 			sleep (2);
 			continue;
 		}
 
 		/* --------------------------------------------------- */
 		/* Perform operation */
-		switch (request.request.type)
+		switch (req.base.op_code)
 		{
 			case 3:
-				write_to_file ("messages/text.msg", request.msg_req.msg, request.msg_req.msg_size);
-				printf ("[SERVER] message to encrypt: \"%s\"\n", request.msg_req.msg);
+				write_to_file ("messages/text.msg", req.data.data, req.data.data_size);
+				printf ("[SERVER] message to encrypt: \"%s\"\n", req.data.data);
 				encrypt("messages/text.msg", "messages/out.enc", "keys/aes.key", "keys/mac.key");
-				response.msg_res.msg_size = read_from_file ("messages/out.enc", request.msg_req.msg);
+				resp.data.data_size = read_from_file ("messages/out.enc", req.data.data);
 				// TODO - Set status according to operation success
-				response.response.status = 0;
+				resp.base.status = 0;
 				break;
 			case 4:
-				write_to_file ("messages/out.enc", request.msg_req.msg, request.msg_req.msg_size);
+				write_to_file ("messages/out.enc", req.data.data, req.data.data_size);
 				decrypt("messages/out.enc", "messages/original.msg", "keys/aes.key", "keys/mac.key");
-				response.msg_res.msg_size = read_from_file ("messages/original.msg", request.msg_req.msg);
+				resp.data.data_size = read_from_file ("messages/original.msg", req.data.data);
 				// TODO - Set status according to operation success
-				response.response.status = 0;
+				resp.base.status = 0;
 				break;
 			case 5:
 				// Encrypt(sign) with private key
@@ -98,14 +98,14 @@ int main (void)
 				printf("Wrong choice, try again\n");
 		}
 
-		printf("\n[SERVER] Op %d done\n\n", request.request.type);
+		printf("\n[SERVER] Op %d done\n\n", req.base.op_code);
 
 		/* set requests attributes */
-		response.response.type = request.request.type;
+		resp.base.op_code = req.base.op_code;
 
 		/* --------------------------------------------------- */
 		/* Send response back to client */
-		send_to_connection(&response);
+		send_to_connection(&resp);
 
 		sleep (2);
 	}
@@ -113,7 +113,7 @@ int main (void)
 	return 0;
 }
 
-void receive_from_connection (struct composed_request * request)
+void receive_from_connection (struct request * request)
 {
 	int bytes;
 
@@ -122,7 +122,7 @@ void receive_from_connection (struct composed_request * request)
 		exit(0);
 	}
 
-	if ((bytes = read(pipe_fd, request, sizeof(struct composed_request))) == -1) {
+	if ((bytes = read(pipe_fd, request, sizeof(struct request))) == -1) {
 		perror("[SERVER] Error reading from pipe: ");
 		close(pipe_fd);
 		exit(0);
@@ -132,7 +132,7 @@ void receive_from_connection (struct composed_request * request)
 
 }
 
-void send_to_connection (struct composed_response * response)
+void send_to_connection (struct response * response)
 {
 	int bytes;
 
@@ -141,7 +141,7 @@ void send_to_connection (struct composed_response * response)
 		exit(0);
 	}
 
-	if ((bytes = write(pipe_fd, response, sizeof(struct composed_response))) == -1) {
+	if ((bytes = write(pipe_fd, response, sizeof(struct response))) == -1) {
 		perror("[SERVER] Error writing to pipe: ");
 		close(pipe_fd);
 		exit(0);
