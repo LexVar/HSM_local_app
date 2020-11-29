@@ -1,7 +1,6 @@
 #include "server.h"
 #include "../protocol.h"
 #include "crypto/crypto.h"
-#include "../pipe.h"
 
 /* pipe file descriptor */
 int pipe_fd;
@@ -33,40 +32,42 @@ int main (void)
 	{
 		/* --------------------------------------------------- */
 		/* Receive request from client */
-		receive_from_connection(&req);
+		receive_from_connection(pipe_fd, &req, sizeof(struct request));
 
-		printf("[SERVER] Received Operation %d....\n", req.base.op_code);
+		printf("[SERVER] Received Operation %d....\n", req.op_code);
 
-		if (req.base.op_code == 0)
+		if (req.op_code == 0)
 		{
 			printf("\n[SERVER] Quitting...\n");
 			break;
 		}
-		else if (req.base.op_code < 2 || req.base.op_code > 9)
+		else if (req.op_code < 2 || req.op_code > 9)
 		{
-			printf("\n[SERVER] %d. Is not a valid operation\n", req.base.op_code);
+			printf("n[SERVER] %d. Is not a valid operation\n", req.op_code);
 			sleep (2);
 			continue;
 		}
 
 		/* --------------------------------------------------- */
 		/* Perform operation */
-		switch (req.base.op_code)
+		switch (req.op_code)
 		{
 			case 3:
+				printf ("[SERVER] message to encrypt: \"%s\"\n", req.data.data);
+				// print_hexa(req.data.data, req.data.data_size);
 				write_to_file ("messages/text.msg", req.data.data, req.data.data_size);
 				printf ("[SERVER] message to encrypt: \"%s\"\n", req.data.data);
 				encrypt("messages/text.msg", "messages/out.enc", "keys/aes.key", "keys/mac.key");
 				resp.data.data_size = read_from_file ("messages/out.enc", req.data.data);
 				// TODO - Set status according to operation success
-				resp.base.status = 0;
+				resp.status = 0;
 				break;
 			case 4:
 				write_to_file ("messages/out.enc", req.data.data, req.data.data_size);
 				decrypt("messages/out.enc", "messages/original.msg", "keys/aes.key", "keys/mac.key");
 				resp.data.data_size = read_from_file ("messages/original.msg", req.data.data);
 				// TODO - Set status according to operation success
-				resp.base.status = 0;
+				resp.status = 0;
 				break;
 			case 5:
 				// Encrypt(sign) with private key
@@ -98,56 +99,21 @@ int main (void)
 				printf("Wrong choice, try again\n");
 		}
 
-		printf("\n[SERVER] Op %d done\n\n", req.base.op_code);
+		printf("\n[SERVER] Op %d done\n\n", req.op_code);
 
 		/* set requests attributes */
-		resp.base.op_code = req.base.op_code;
+		resp.op_code = req.op_code;
 
 		/* --------------------------------------------------- */
 		/* Send response back to client */
-		send_to_connection(&resp);
+		send_to_connection(pipe_fd, &resp, sizeof(struct response));
+
+		printf("[SERVER] Sent Operation %d....\n", resp.op_code);
 
 		sleep (2);
 	}
 
 	return 0;
-}
-
-void receive_from_connection (struct request * request)
-{
-	int bytes;
-
-	if ((pipe_fd = open(PIPE_NAME, O_RDONLY)) < 0) {
-		perror("[SERVER] Cannot open pipe for reading: ");
-		exit(0);
-	}
-
-	if ((bytes = read(pipe_fd, request, sizeof(struct request))) == -1) {
-		perror("[SERVER] Error reading from pipe: ");
-		close(pipe_fd);
-		exit(0);
-	}
-
-	close(pipe_fd);
-
-}
-
-void send_to_connection (struct response * response)
-{
-	int bytes;
-
-	if ((pipe_fd = open(PIPE_NAME, O_WRONLY)) < 0) {
-		perror("[SERVER] Cannot open pipe for writing: ");
-		exit(0);
-	}
-
-	if ((bytes = write(pipe_fd, response, sizeof(struct response))) == -1) {
-		perror("[SERVER] Error writing to pipe: ");
-		close(pipe_fd);
-		exit(0);
-	}
-
-	close(pipe_fd);
 }
 
 // Generates new AES key, saves to aes.key file
@@ -167,15 +133,6 @@ void new_key(char * key_file)
 	}
 	else
 		printf("Error generating key.\n");
-}
-
-void print_hexa(unsigned char * string, int length)
-{
-	int i = 0;
-	for (i = 0; i < length; i++)
-		printf("%x ",string[i] & 0xff);
-
-	printf("\n");
 }
 
 void cleanup()

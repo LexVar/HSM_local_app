@@ -1,17 +1,16 @@
 #include "client.h"
-#include "../pipe.h"
 #include "../protocol.h"
 
-/* pipe file descriptor */
+// pipe file descriptor
 int pipe_fd;
 
-/* request structure */
+// request structure
 struct request req;
 
-/* response structure */
+// response structure
 struct response resp;
 
-int main()
+int main(void)
 {
 	// Opens the pipe for writing
 	int op;
@@ -38,13 +37,11 @@ int main()
 
 		// ------------------------------
 		// set request attributes
-		req.base.op_code = op;
+		req.op_code = op;
 
-		switch (req.base.op_code)
+		switch (req.op_code)
 		{
 			// CHANGE PIN TODO
-			case 2:
-				break;
 			case 3:
 				printf("Enter the message: ");
 
@@ -53,10 +50,10 @@ int main()
 					printf ("[CLIENT] Error reading message from input, try again..\n");
 					continue;
 				}
-				// request.msg_req.msg_size = strlen(request.msg_req.msg);
-
-				break;
-			case 4:
+				req.verify_ds.data_size = 12312;
+				printf("[CLIENT] Sending data: \"%s\"\n", req.data.data);
+				printf("[CLIENT] test int: \"%d\"\n", req.verify_ds.data_size);
+				req.data.data_size = strlen(req.data.data);
 				break;
 			case 0:
 				printf("[CLIENT] Sending message to stop server..\n");
@@ -70,25 +67,27 @@ int main()
 
 		// ----------------------------------------------------
 		// Send the request
-		send_to_connection(&req);
+		send_to_connection(pipe_fd, &req, sizeof(struct request));
+
+		printf("[CLIENT] Sent Operation %d....\n", req.op_code);
 
 		// ----------------------------------------------------
 		// Receiving the response
-		receive_from_connection(&resp);
+		receive_from_connection(pipe_fd, &resp, sizeof(struct response));
+
+		printf("[CLIENT] Received Op. %d, status %d\n", resp.op_code, resp.status);
 
 		// ----------------------------------------------------
 		// Treat the response
-		if (resp.base.status == -1)
+		if (resp.status == -1)
 		{
 			printf ("[CLIENT] Some error ocurred on the server performing the operation\n");
 		}
 		else
 		{
-			switch (req.base.op_code)
+			switch (req.op_code)
 			{
 				// CHANGE PIN TODO
-				case 2:
-					break;
 				case 3:
 					printf ("[CLIENT] Encrypted message: \"%s\"\n", resp.data.data);
 
@@ -106,51 +105,6 @@ int main()
 		sleep(2);
 	}
 	return 0;
-}
-
-void send_to_connection (struct request * request)
-{
-	int bytes;
-
-	if ((pipe_fd = open(PIPE_NAME, O_WRONLY)) < 0) {
-		perror("[CLIENT] Cannot open pipe for writing: ");
-		exit(0);
-	}
-
-	printf("[CLIENT] Sending %d operation\n", request->base.op_code);
-
-	if ((bytes = write(pipe_fd, request, sizeof(struct request))) == -1) {
-		perror("[CLIENT] Error writing to pipe: ");
-		close(pipe_fd);
-		exit(0);
-	}
-	close(pipe_fd);
-}
-
-void receive_from_connection (struct response * response)
-{
-	int bytes;
-
-	if ((pipe_fd = open(PIPE_NAME, O_RDONLY)) < 0) {
-		perror("[CLIENT] Cannot open pipe for reading: ");
-		exit(0);
-	}
-
-	if ((bytes = read(pipe_fd, response, sizeof(struct response))) == -1) {
-		perror("[CLIENT] Error reading from pipe: ");
-		close(pipe_fd);
-		exit(0);
-	}
-	printf("[CLIENT] Received operation %d result with status %d\n", response->base.op_code, response->base.status);
-
-	close(pipe_fd);
-}
-
-
-void flush_stdin ()
-{
-	int c;
-	while ((c = getchar()) != EOF && c != '\n') ;
 }
 
 void cleanup()

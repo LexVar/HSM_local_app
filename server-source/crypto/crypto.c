@@ -116,8 +116,8 @@ int ctr_encryption(unsigned char * plaintext, int size, unsigned char * iv, unsi
 	int total_bytes = 0;
 	
 	/* Buffers for Encryption */
-	unsigned char enc_in[MESSAGE_SIZE];
-	unsigned char enc_out[MESSAGE_SIZE];
+	unsigned char enc_in[DATA_SIZE];
+	unsigned char enc_out[DATA_SIZE];
 
 	ctr_state state;
 
@@ -159,8 +159,8 @@ int ctr_encryption(unsigned char * plaintext, int size, unsigned char * iv, unsi
 void encrypt(char * input_file, char * output_file, char * key_file, char * mac_file)
 {
 	unsigned char * mac;
-	unsigned char ciphertext[MESSAGE_SIZE], plaintext[MESSAGE_SIZE];
-	unsigned char iv_cipher[MESSAGE_SIZE];
+	unsigned char ciphertext[DATA_SIZE], plaintext[DATA_SIZE];
+	unsigned char iv_cipher[DATA_SIZE];
 	unsigned char buffer[AES_BLOCK_SIZE];
 	unsigned char iv[AES_BLOCK_SIZE];
 	unsigned char key[KEY_SIZE], mac_key[KEY_SIZE];
@@ -207,7 +207,7 @@ void encrypt(char * input_file, char * output_file, char * key_file, char * mac_
 	/* write MAC+IV+MESSAGE to file */
 	if (fout != NULL)
 	{
-		fwrite (mac, sizeof(char), MAC_SIZE, fout);
+		fwrite (mac, sizeof(char), SIGNATURE_SIZE, fout);
 		fwrite (iv, sizeof(char), AES_BLOCK_SIZE, fout);
 		fwrite (ciphertext, sizeof(char), size, fout);
 		fclose(fout);
@@ -219,10 +219,10 @@ void encrypt(char * input_file, char * output_file, char * key_file, char * mac_
 
 void decrypt(char * input_file, char * output_file, char * key_file, char * mac_file)
 {
-	unsigned char mac[MAC_SIZE];
+	unsigned char mac[SIGNATURE_SIZE];
 	unsigned char * computed_mac;
-	unsigned char ciphertext[MESSAGE_SIZE], plaintext[MESSAGE_SIZE];
-	unsigned char iv_cipher[MESSAGE_SIZE];
+	unsigned char ciphertext[DATA_SIZE], plaintext[DATA_SIZE];
+	unsigned char iv_cipher[DATA_SIZE];
 	unsigned char buffer[AES_BLOCK_SIZE];
 	int bytes_read, total_bytes = 0;
 	FILE *fout, *fin;
@@ -237,7 +237,7 @@ void decrypt(char * input_file, char * output_file, char * key_file, char * mac_
 
 	if (fin != NULL)
 	{
-		fread(mac, MAC_SIZE, 1, fin);
+		fread(mac, SIGNATURE_SIZE, 1, fin);
 
 		// Read the IV first
 		bytes_read = fread(iv, 1, AES_BLOCK_SIZE, fin);
@@ -261,7 +261,7 @@ void decrypt(char * input_file, char * output_file, char * key_file, char * mac_
 	computed_mac = compute_hmac(mac_key, iv_cipher, AES_BLOCK_SIZE+total_bytes);
 
 	/* verify if macs are the same */
-	if (compare_mac(mac, computed_mac, MAC_SIZE) == 0)
+	if (compare_mac(mac, computed_mac, SIGNATURE_SIZE) == 0)
 	{
 		printf ("MAC successfully verified, proceding to decryption...\n");
 
@@ -289,7 +289,7 @@ unsigned char * compute_hmac(unsigned char * key, unsigned char * message, int s
 {
 	unsigned char * md;
 
-	/* don't change the hash function without changing MAC_SIZE */
+	/* don't change the hash function without changing SIGNATURE_SIZE */
 	md = HMAC(EVP_sha256(), key, KEY_SIZE, message, size, NULL, NULL);
 
 	if (md == NULL)

@@ -10,18 +10,6 @@
 #define ECC_KEY_SIZE 48		// ECC 384 bit keys
 #define PUB_KEY_SIZE 96		// ECC 768 bit public keys
 
-// Base structures for requests and responses
-struct base_request {
-	char op_code;		// Operation Code
-	char status;		// Operation Status
-};
-
-struct base_response {
-	char op_code;		// Operation Code
-	char status;		// Operation Status
-};
-// ----------------------
-
 // Authentication request, response structures
 struct auth_request {
 	char pin[PIN_SIZE];
@@ -110,7 +98,8 @@ struct import_pub_response {
 // ----------------------
 
 struct request {
-	struct base_request base;
+	char op_code;		// Operation Code
+	char status;		// Operation Status
 
 	union {
 		struct auth_request auth;
@@ -125,7 +114,8 @@ struct request {
 };
 
 struct response {
-	struct base_response base;
+	char op_code;		// Operation Code
+	char status;		// Operation Status
 
 	union {
 		struct auth_reponse auth;

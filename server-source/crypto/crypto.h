@@ -13,13 +13,7 @@
 #include <openssl/rsa.h>
 #include <openssl/pem.h>
 
-#define SIZE 99
-// Key size - 128 bit
-#define KEY_SIZE 16
-// MAC code size
-#define MAC_SIZE 32
-// Max message size
-#define MESSAGE_SIZE 512
+#include "../../protocol.h"
 
 typedef struct
 {
