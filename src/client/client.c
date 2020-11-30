@@ -1,28 +1,17 @@
 #include "client.h"
 
-// pipe file descriptor
-int pipe_fd;
-
-// request structure
-struct request req;
-
-// response structure
-struct response resp;
+int pipe_fd;		// pipe file descriptor
+struct request req;	// request structure
+struct response resp;	// response structure
 
 int main(void)
 {
-	// Opens the pipe for writing
-	int op;
-
-	char filename[ID_SIZE];
-
-	// Redirects SIGINT (CTRL-c) to sigint()
+	// Redirects SIGINT (CTRL-c) to cleanup()
 	signal(SIGINT, cleanup);
 
-	// Do some work
 	while (1) {
 
-		printf("\n---CLIENT OPERATIONS---\n");
+		printf("\n--CLIENT OPERATIONS--\n");
 		printf(" 2. Change PIN\n");
 		printf(" 3. Encrypt message\n");
 		printf(" 4. Decrypt message\n");
@@ -32,50 +21,109 @@ int main(void)
 		printf(" 8. Share key\n");
 		printf(" 9. Save key\n");
 		printf(" 0. Quit\n");
-		printf("-----------------------\n\n");
+		printf("---------------------\n\n");
 
 		printf("Operation: ");
-		scanf("%d", &op);
+		scanf("%hhd", &(req.op_code));
 
 		flush_stdin();
 
 		// ------------------------------
-		// set request attributes
-		req.op_code = op;
-
+		// set request attributes depending on op. code
 		switch (req.op_code)
 		{
-			case 3:
-				printf("Data filename: ");
-
-				if (fgets(filename, ID_SIZE, stdin) == NULL)
+			case 2:	// Change authentication PIN
+				if (fgets(req.admin.pin, PIN_SIZE, stdin) == NULL)
 				{
-					printf ("[CLIENT] Error getting filename from stdin, try again..\n");
+					printf ("[CLIENT] Error getting PIN, try again..\n");
 					continue;
 				}
-				filename[strlen(filename)-1] = 0; // Remove newline
-				req.data.data_size = read_from_file (filename, req.data.data);
-				printf("[CLIENT] Sending data:\n%s\n", req.data.data);
 				break;
-			case 4:
-				printf("Encrypted filename: ");
+			case 3: // Encrypt and authenticate data
+				printf("Data filename: ");
+				if ((req.data.data_size = get_attribute_from_file(req.data.data)) == 0)
+					continue;
 
-				if (fgets(filename, ID_SIZE, stdin) == NULL)
+				break;
+			case 4: // Decrypt and authenticate data
+				printf("Encrypted filename: ");
+				if ((req.data.data_size = get_attribute_from_file(req.data.data)) == 0)
+					continue;
+				break;
+			case 5:	// Sign message
+				printf("Data filename: ");
+				if ((req.sign.data_size = get_attribute_from_file(req.sign.data)) == 0)
+					continue;
+
+				break;
+			case 6:	// Sign message
+				printf("Data filename: ");
+				if ((req.verify_ds.data_size = get_attribute_from_file(req.verify_ds.data)) == 0)
+					continue;
+
+				printf("Signature filename: ");
+				if (get_attribute_from_file(req.verify_ds.signature) == 0)
+					continue;
+
+				printf("Entity's ID: ");
+				if (fgets(req.verify_ds.entity_id, ID_SIZE, stdin) == NULL)
 				{
-					printf ("[CLIENT] Error getting filename from stdin, try again..\n");
+					printf ("[CLIENT] Error getting ID, try again..\n");
 					continue;
 				}
-				filename[strlen(filename)-1] = 0; // Remove newline
-				req.data.data_size = read_from_file (filename, req.data.data);
+				break;
+			case 7:	// Import public key
+				printf("Public key filename: ");
+				if (get_attribute_from_file(req.import_pub.public_key) == 0)
+					continue;
 
-				printf("[CLIENT] Sending data:\n%s\n", req.data.data);
+				printf("Entity's ID: ");
+				if (fgets(req.import_pub.entity_id, ID_SIZE, stdin) == NULL)
+				{
+					printf ("[CLIENT] Error getting ID, try again..\n");
+					continue;
+				}
+				break;
+			case 8:	// Share key
+				printf("Entity's ID (to share key with): ");
+				if (fgets(req.gen_key.entity_id, ID_SIZE, stdin) == NULL)
+				{
+					printf ("[CLIENT] Error getting ID, try again..\n");
+					continue;
+				}
+
+				printf("New Key's ID: ");
+				if (fgets(req.gen_key.key_id, ID_SIZE, stdin) == NULL)
+				{
+					printf ("[CLIENT] Error getting ID, try again..\n");
+					continue;
+				}
+				break;
+			case 9:	// Save key
+				printf("Entity's ID (to share key with): ");
+				if (fgets(req.save_key.entity_id, ID_SIZE, stdin) == NULL)
+				{
+					printf ("[CLIENT] Error getting ID, try again..\n");
+					continue;
+				}
+
+				printf("New Key's ID: ");
+				if (fgets(req.save_key.key_id, ID_SIZE, stdin) == NULL)
+				{
+					printf ("[CLIENT] Error getting ID, try again..\n");
+					continue;
+				}
+
+				printf("Message (encrypted key): ");
+				if (get_attribute_from_file(req.save_key.msg) == 0)
+					continue;
 				break;
 			case 0:
 				printf("[CLIENT] Stopping client..\n");
 				exit(0);
 				break;
 			default:
-				printf("\n[CLIENT] %d. Is not a valid operation\n", op);
+				printf("\n[CLIENT] %d. Is not a valid operation\n", req.op_code);
 				sleep (2);
 				continue;
 		}
@@ -90,31 +138,29 @@ int main(void)
 		// Receiving the response
 		receive_from_connection(pipe_fd, &resp, sizeof(struct response));
 
-		printf("[CLIENT] Received Op. %d, status %d\n", resp.op_code, resp.status);
+		printf("[CLIENT] Received response: status %d\n", resp.status);
 
 		// ----------------------------------------------------
 		// Treat the response
 		if (resp.status == -1)
 		{
-			printf ("[CLIENT] Some error ocurred on the server performing the operation\n");
+			printf ("[CLIENT] !!!! Some error ocurred on the server\n");
 		}
-		else
+
+		switch (resp.op_code)
 		{
-			switch (resp.op_code)
-			{
-				case 3:
-					printf ("[CLIENT] Encrypted message:\n%s\n", resp.data.data);
-					write_to_file ("data.enc", resp.data.data, resp.data.data_size);
+			case 3:
+				printf ("[CLIENT] Encrypted data (\"data.enc\"):\n%s\n", resp.data.data);
+				write_to_file ("data.enc", resp.data.data, resp.data.data_size);
 
-					break;
-				case 4:
-					printf ("[CLIENT] Decrypted message:\n%s\n", resp.data.data);
-					write_to_file ("data.txt", resp.data.data, resp.data.data_size);
+				break;
+			case 4:
+				printf ("[CLIENT] Decrypted data (\"data.txt\"):\n%s\n", resp.data.data);
+				write_to_file ("data.txt", resp.data.data, resp.data.data_size);
 
-					break;
-				default:
-					break;
-			}
+				break;
+			default:
+				break;
 		}
 
 		// Wait before printing the menu again
@@ -123,9 +169,24 @@ int main(void)
 	return 0;
 }
 
+int get_attribute_from_file (char * attribute)
+{
+	char filename[ID_SIZE];
+
+	if (fgets(filename, ID_SIZE, stdin) == NULL)
+	{
+		printf ("[CLIENT] Error getting filename, try again..\n");
+		return 0;
+	}
+	filename[strlen(filename)-1] = 0; // Remove newline from filename
+
+	// get data and size from file
+	return read_from_file (filename, attribute);
+}
+
 void cleanup()
 {
-	printf ("[CLIENT] Cleaning up...\n");
+	printf ("\n[CLIENT] Cleaning up...\n");
 	/* place all cleanup operations here */
 	close(pipe_fd);
 	exit (0);

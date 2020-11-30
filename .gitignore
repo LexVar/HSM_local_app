@@ -1,5 +1,6 @@
 keys/*
 messages/*
+bin/*
 *.bin
 *.swp
 *.txt

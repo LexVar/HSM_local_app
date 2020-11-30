@@ -1,20 +1,12 @@
 #include "server.h"
 
-// pipe file descriptor
-int pipe_fd;
-
-// request structure
-struct request req;
-
-// response structure
-struct request resp;
+int pipe_fd;		// pipe file descriptor
+struct request req;	// request structure
+struct request resp;	// response structure
 
 int main (void)
 {
-	// load cryptography libraries
-	init_crypto_state();
-
-	// Redirects SIGINT (CTRL-c) to sigint()
+	// Redirects SIGINT (CTRL-c) to cleanup()
 	signal(SIGINT, cleanup);
 
 	// Creates the named pipe if it doesn't exist yet
@@ -24,15 +16,12 @@ int main (void)
                 exit(-1);
         }
 
-	// if ((pipe_fd = open(PIPE_NAME, O_RDWR)) < 0) {
-	//         perror("[SERVER] Cannot open pipe for reading: ");
-	//         exit(0);
-	// }
+	// load cryptography libraries
+	init_crypto_state();
 
 	while(1)
 	{
-		/* --------------------------------------------------- */
-		/* Receive request from client */
+		// Receive request from client
 		receive_from_connection(pipe_fd, &req, sizeof(struct request));
 
 		printf("[SERVER] Received Operation %d....\n", req.op_code);
@@ -53,18 +42,24 @@ int main (void)
 		switch (req.op_code)
 		{
 			case 3:
+				// TEMPORARY
+				// write data to file to pass as argument
 				write_to_file ("messages/plaintext.txt", req.data.data, req.data.data_size);
+				// Encrypt and authenticate data
 				encrypt("messages/plaintext.txt", "messages/ciphertext.enc", "keys/aes.key", "keys/mac.key");
+				// Read ciphertext from file
 				resp.data.data_size = read_from_file ("messages/ciphertext.enc", resp.data.data);
-				printf ("[SERVER] encrypted:\n%s\n", resp.data.data);
 				// TODO - Set status according to operation success
 				resp.status = 0;
 				break;
 			case 4:
+				// TEMPORARY
+				// write data to file to pass as argument
 				write_to_file ("messages/ciphertext.enc", req.data.data, req.data.data_size);
+				// Decrypt and authenticate data
 				decrypt("messages/ciphertext.enc", "messages/plaintext.msg", "keys/aes.key", "keys/mac.key");
+				// Read plaintext from file
 				resp.data.data_size = read_from_file ("messages/plaintext.msg", resp.data.data);
-				printf ("[SERVER] Decrypted message:\n%s\n", resp.data.data);
 				// TODO - Set status according to operation success
 				resp.status = 0;
 				break;
@@ -98,7 +93,7 @@ int main (void)
 				printf("Wrong choice, try again\n");
 		}
 
-		printf("\n[SERVER] Op %d done\n\n", req.op_code);
+		printf("\n[SERVER] Finished Op. %d\n", req.op_code);
 
 		/* set requests attributes */
 		resp.op_code = req.op_code;
@@ -109,7 +104,7 @@ int main (void)
 		/* Send response back to client */
 		send_to_connection(pipe_fd, &resp, sizeof(struct request));
 
-		printf("[SERVER] Sent Operation %d....\n", resp.op_code);
+		printf("[SERVER] Sent response to op. %d....\n", resp.op_code);
 	}
 
 	return 0;
@@ -136,7 +131,8 @@ void new_key(char * key_file)
 
 void cleanup()
 {
-	printf ("[SERVER] Received SIGINT, shutting down server after cleanup\n");
+	printf ("\n[SERVER] Received SIGINT, cleaning up...\n");
+	printf ("\n[SERVER] Shutting down...\n");
 
 	/* place all cleanup operations here */
 	close(pipe_fd);

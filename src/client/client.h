@@ -8,6 +8,7 @@
 #include "../protocol.h"
 #include "../functions.c"
 
+int get_attribute_from_file (char * attribute);
 void cleanup();
 
 #endif 
