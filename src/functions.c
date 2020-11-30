@@ -38,16 +38,19 @@ void send_to_connection (int fd, void * structure, size_t struct_size)
 {
 	int bytes;
 
+	printf("[SERVER] !!!!!!!!!!!!!!!\n");
 	if ((fd = open(PIPE_NAME, O_WRONLY)) < 0) {
 		perror("[SERVER] Cannot open pipe for writing: ");
 		exit(0);
 	}
 
+	printf("[SERVER] !!!!!!!!!!!!!!!\n");
 	if ((bytes = write(fd, structure, struct_size)) == -1) {
 		perror("[SERVER] Error writing to pipe: ");
 		close(fd);
 		exit(0);
 	}
+	printf("[SERVER] !!!!!!!!!!!!!!!\n");
 
 	close(fd);
 }
@@ -85,7 +88,6 @@ int read_from_file (char * filename, char * content)
 		fclose(f);
 
 		content[fsize] = 0;
-		printf ("content: %s\n", content);
 	}
 
 	return fsize;

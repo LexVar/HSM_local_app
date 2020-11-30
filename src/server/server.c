@@ -50,19 +50,18 @@ int main (void)
 		switch (req.op_code)
 		{
 			case 3:
-				printf ("[SERVER] message to encrypt: \"%s\"\n", req.data.data);
-				// print_hexa(req.data.data, req.data.data_size);
 				write_to_file ("messages/plaintext.txt", req.data.data, req.data.data_size);
-				printf ("[SERVER] message to encrypt: \"%s\"\n", req.data.data);
-				encrypt("messages/plaintext.txt", "messages/out.enc", "keys/aes.key", "keys/mac.key");
-				resp.data.data_size = read_from_file ("messages/out.enc", req.data.data);
+				encrypt("messages/plaintext.txt", "messages/ciphertext.enc", "keys/aes.key", "keys/mac.key");
+				resp.data.data_size = read_from_file ("messages/ciphertext.enc", resp.data.data);
+				printf ("[SERVER] encrypted:\n%s\n", resp.data.data);
 				// TODO - Set status according to operation success
 				resp.status = 0;
 				break;
 			case 4:
-				write_to_file ("messages/out.enc", req.data.data, req.data.data_size);
-				decrypt("messages/out.enc", "messages/original.msg", "keys/aes.key", "keys/mac.key");
-				resp.data.data_size = read_from_file ("messages/original.msg", req.data.data);
+				write_to_file ("messages/ciphertext.enc", req.data.data, req.data.data_size);
+				decrypt("messages/ciphertext.enc", "messages/plaintext.msg", "keys/aes.key", "keys/mac.key");
+				resp.data.data_size = read_from_file ("messages/plaintext.msg", resp.data.data);
+				printf ("[SERVER] Decrypted message:\n%s\n", resp.data.data);
 				// TODO - Set status according to operation success
 				resp.status = 0;
 				break;

@@ -31,7 +31,6 @@ int main(void)
 		printf(" 0. Quit\n");
 		printf("------------------------------------\n\n");
 
-		flush_stdin();
 		printf("Operation: ");
 		scanf("%d", &op);
 
@@ -54,6 +53,7 @@ int main(void)
 				}
 				filename[strlen(filename)-1] = 0; // Remove newline
 				req.data.data_size = read_from_file (filename, req.data.data);
+				printf("[CLIENT] Sending data:\n%s\n", req.data.data);
 				break;
 			case 4:
 				printf("Encrypted filename: ");
@@ -66,7 +66,7 @@ int main(void)
 				filename[strlen(filename)-1] = 0; // Remove newline
 				req.data.data_size = read_from_file (filename, req.data.data);
 
-				printf("[CLIENT] Sending data: \"%s\"\n", req.data.data);
+				printf("[CLIENT] Sending data:\n%s\n", req.data.data);
 				break;
 			case 0:
 				printf("[CLIENT] Stopping client..\n");
@@ -98,16 +98,16 @@ int main(void)
 		}
 		else
 		{
-			switch (req.op_code)
+			switch (resp.op_code)
 			{
 				// CHANGE PIN TODO
 				case 3:
-					printf ("[CLIENT] Encrypted message: \"%s\"\n", resp.data.data);
+					printf ("[CLIENT] Encrypted message:\n%s\n", resp.data.data);
 					write_to_file ("data.enc", resp.data.data, resp.data.data_size);
 
 					break;
 				case 4:
-					printf ("[CLIENT] Decrypted message: \"%s\"\n", resp.data.data);
+					printf ("[CLIENT] Decrypted message:\n%s\n", resp.data.data);
 					write_to_file ("data.txt", resp.data.data, resp.data.data_size);
 
 					break;
