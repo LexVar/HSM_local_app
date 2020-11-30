@@ -1,8 +1,8 @@
 CC = gcc
 LIBS =  -lssl -lcrypto
 CFLAGS = -Wall
-CLIENT_DIR = ./client-source
-SERVER_DIR = ./server-source
+CLIENT_DIR = ./src/client
+SERVER_DIR = ./src/server
 CRYPTO_DIR = ${SERVER_DIR}/crypto
 
 server:  ${SERVER_DIR}/server.c ${CRYPTO_DIR}/crypto.c
