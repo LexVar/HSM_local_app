@@ -1,14 +1,12 @@
 #include "server.h"
-#include "../protocol.h"
-#include "crypto/crypto.h"
 
-/* pipe file descriptor */
+// pipe file descriptor
 int pipe_fd;
 
-/* request structure */
+// request structure
 struct request req;
 
-/* response structure */
+// response structure
 struct response resp;
 
 int main (void)
@@ -25,7 +23,7 @@ int main (void)
         if ((mkfifo(PIPE_NAME, O_CREAT|O_EXCL|0600)<0) && (errno!= EEXIST))
         {
                 perror("[SERVER] Cannot create pipe: ");
-                exit(0);
+                exit(-1);
         }
 
 	while(1)
@@ -44,7 +42,6 @@ int main (void)
 		else if (req.op_code < 2 || req.op_code > 9)
 		{
 			printf("n[SERVER] %d. Is not a valid operation\n", req.op_code);
-			sleep (2);
 			continue;
 		}
 
@@ -55,9 +52,9 @@ int main (void)
 			case 3:
 				printf ("[SERVER] message to encrypt: \"%s\"\n", req.data.data);
 				// print_hexa(req.data.data, req.data.data_size);
-				write_to_file ("messages/text.msg", req.data.data, req.data.data_size);
+				write_to_file ("messages/plaintext.txt", req.data.data, req.data.data_size);
 				printf ("[SERVER] message to encrypt: \"%s\"\n", req.data.data);
-				encrypt("messages/text.msg", "messages/out.enc", "keys/aes.key", "keys/mac.key");
+				encrypt("messages/plaintext.txt", "messages/out.enc", "keys/aes.key", "keys/mac.key");
 				resp.data.data_size = read_from_file ("messages/out.enc", req.data.data);
 				// TODO - Set status according to operation success
 				resp.status = 0;

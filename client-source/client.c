@@ -1,5 +1,4 @@
 #include "client.h"
-#include "../protocol.h"
 
 // pipe file descriptor
 int pipe_fd;
@@ -14,6 +13,8 @@ int main(void)
 {
 	// Opens the pipe for writing
 	int op;
+
+	char filename[ID_SIZE];
 
 	// Do some work
 	while (1) {
@@ -30,6 +31,7 @@ int main(void)
 		printf(" 0. Quit\n");
 		printf("------------------------------------\n\n");
 
+		flush_stdin();
 		printf("Operation: ");
 		scanf("%d", &op);
 
@@ -43,20 +45,31 @@ int main(void)
 		{
 			// CHANGE PIN TODO
 			case 3:
-				printf("Enter the message: ");
+				printf("Data filename: ");
 
-				if (fgets(req.data.data, DATA_SIZE, stdin) == NULL)
+				if (fgets(filename, ID_SIZE, stdin) == NULL)
 				{
-					printf ("[CLIENT] Error reading message from input, try again..\n");
+					printf ("[CLIENT] Error getting filename from stdin, try again..\n");
 					continue;
 				}
-				req.verify_ds.data_size = 12312;
+				filename[strlen(filename)-1] = 0; // Remove newline
+				req.data.data_size = read_from_file (filename, req.data.data);
+				break;
+			case 4:
+				printf("Encrypted filename: ");
+
+				if (fgets(filename, ID_SIZE, stdin) == NULL)
+				{
+					printf ("[CLIENT] Error getting filename from stdin, try again..\n");
+					continue;
+				}
+				filename[strlen(filename)-1] = 0; // Remove newline
+				req.data.data_size = read_from_file (filename, req.data.data);
+
 				printf("[CLIENT] Sending data: \"%s\"\n", req.data.data);
-				printf("[CLIENT] test int: \"%d\"\n", req.verify_ds.data_size);
-				req.data.data_size = strlen(req.data.data);
 				break;
 			case 0:
-				printf("[CLIENT] Sending message to stop server..\n");
+				printf("[CLIENT] Stopping client..\n");
 				exit(0);
 				break;
 			default:
@@ -90,10 +103,12 @@ int main(void)
 				// CHANGE PIN TODO
 				case 3:
 					printf ("[CLIENT] Encrypted message: \"%s\"\n", resp.data.data);
+					write_to_file ("data.enc", resp.data.data, resp.data.data_size);
 
 					break;
 				case 4:
 					printf ("[CLIENT] Decrypted message: \"%s\"\n", resp.data.data);
+					write_to_file ("data.txt", resp.data.data, resp.data.data_size);
 
 					break;
 				default:

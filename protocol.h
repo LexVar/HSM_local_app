@@ -6,7 +6,7 @@
 #define SIGNATURE_SIZE 96	// 768 bit signature from curve P-384
 #define ID_SIZE 10
 #define PIN_SIZE 10
-#define KEY_SIZE 48		// Symmetric key size - 256 + 128 bits
+#define KEY_SIZE 16		// Symmetric key size - 256 + 128 bits
 #define ECC_KEY_SIZE 48		// ECC 384 bit keys
 #define PUB_KEY_SIZE 96		// ECC 768 bit public keys
 
@@ -97,6 +97,8 @@ struct import_pub_response {
 };
 // ----------------------
 
+// Main request structure with base parameters (op_code, status) and
+// union structures, only one is used, depending on the operation
 struct request {
 	char op_code;		// Operation Code
 	char status;		// Operation Status
@@ -113,6 +115,8 @@ struct request {
 	};
 };
 
+// Main response structure with base parameters (op_code, status) and
+// union structures, only one is used, depending on the operation
 struct response {
 	char op_code;		// Operation Code
 	char status;		// Operation Status

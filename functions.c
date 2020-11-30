@@ -6,8 +6,12 @@
 #include <sys/stat.h>
 #include <errno.h>
 
-#define PIPE_NAME "connection"
+#define PIPE_NAME "connection" // Pipe name
 
+// Reiceve a message from the other process
+// fd - pipe file descriptor
+// structure - pointer to structure where to save information
+// struct_size - structure size in bytes sizeof(..)
 void receive_from_connection (int fd, void * structure, size_t struct_size)
 {
 	int bytes;
@@ -26,6 +30,10 @@ void receive_from_connection (int fd, void * structure, size_t struct_size)
 	close(fd);
 }
 
+// Send a message from the other process
+// fd - pipe file descriptor
+// structure - pointer to structure to send through pipe
+// struct_size - structure size in bytes sizeof(..)
 void send_to_connection (int fd, void * structure, size_t struct_size)
 {
 	int bytes;
@@ -77,6 +85,7 @@ int read_from_file (char * filename, char * content)
 		fclose(f);
 
 		content[fsize] = 0;
+		printf ("content: %s\n", content);
 	}
 
 	return fsize;
