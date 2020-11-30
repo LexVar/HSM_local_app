@@ -6,13 +6,13 @@
 #include <sys/stat.h>
 #include <errno.h>
 
-#define PIPE_NAME "connection" // Pipe name
+#define PIPE_NAME "/tmp/connection" // Pipe name
 
 // Reiceve a message from the other process
 // fd - pipe file descriptor
 // structure - pointer to structure where to save information
 // struct_size - structure size in bytes sizeof(..)
-void receive_from_connection (int fd, void * structure, size_t struct_size)
+int receive_from_connection (int fd, void * structure, size_t struct_size)
 {
 	int bytes;
 
@@ -22,37 +22,37 @@ void receive_from_connection (int fd, void * structure, size_t struct_size)
 	}
 
 	if ((bytes = read(fd, structure, struct_size)) == -1) {
-		perror("[SERVER] Error reading from pipe: ");
+		perror("Error reading from pipe: ");
 		close(fd);
 		exit(0);
 	}
 
 	close(fd);
+	return bytes;
 }
 
 // Send a message from the other process
 // fd - pipe file descriptor
 // structure - pointer to structure to send through pipe
 // struct_size - structure size in bytes sizeof(..)
-void send_to_connection (int fd, void * structure, size_t struct_size)
+int send_to_connection (int fd, void * structure, size_t struct_size)
 {
 	int bytes;
 
-	printf("[SERVER] !!!!!!!!!!!!!!!\n");
 	if ((fd = open(PIPE_NAME, O_WRONLY)) < 0) {
 		perror("[SERVER] Cannot open pipe for writing: ");
 		exit(0);
 	}
 
-	printf("[SERVER] !!!!!!!!!!!!!!!\n");
+	sleep (1);
 	if ((bytes = write(fd, structure, struct_size)) == -1) {
-		perror("[SERVER] Error writing to pipe: ");
+		perror("Error writing to pipe: ");
 		close(fd);
 		exit(0);
 	}
-	printf("[SERVER] !!!!!!!!!!!!!!!\n");
 
 	close(fd);
+	return bytes;
 }
 
 void * write_to_file (char * filename, char * content, int fsize)

@@ -16,20 +16,23 @@ int main(void)
 
 	char filename[ID_SIZE];
 
+	// Redirects SIGINT (CTRL-c) to sigint()
+	signal(SIGINT, cleanup);
+
 	// Do some work
 	while (1) {
 
-		printf("\n----------CLIENT OPERATIONS---------\n");
+		printf("\n---CLIENT OPERATIONS---\n");
 		printf(" 2. Change PIN\n");
-		printf(" 3. Encrypt and authenticate message\n");
-		printf(" 4. Decrypt and authenticate message\n");
+		printf(" 3. Encrypt message\n");
+		printf(" 4. Decrypt message\n");
 		printf(" 5. Sign message\n");
-		printf(" 6. Verify message signature\n");
+		printf(" 6. Verify signature\n");
 		printf(" 7. Import public key\n");
-		printf(" 8. Share symmetric key\n");
-		printf(" 9. Save shared symmetric key\n");
+		printf(" 8. Share key\n");
+		printf(" 9. Save key\n");
 		printf(" 0. Quit\n");
-		printf("------------------------------------\n\n");
+		printf("-----------------------\n\n");
 
 		printf("Operation: ");
 		scanf("%d", &op);
@@ -42,7 +45,6 @@ int main(void)
 
 		switch (req.op_code)
 		{
-			// CHANGE PIN TODO
 			case 3:
 				printf("Data filename: ");
 
@@ -100,7 +102,6 @@ int main(void)
 		{
 			switch (resp.op_code)
 			{
-				// CHANGE PIN TODO
 				case 3:
 					printf ("[CLIENT] Encrypted message:\n%s\n", resp.data.data);
 					write_to_file ("data.enc", resp.data.data, resp.data.data_size);
@@ -116,7 +117,7 @@ int main(void)
 			}
 		}
 
-
+		// Wait before printing the menu again
 		sleep(2);
 	}
 	return 0;
@@ -124,6 +125,8 @@ int main(void)
 
 void cleanup()
 {
+	printf ("[CLIENT] Cleaning up...\n");
 	/* place all cleanup operations here */
 	close(pipe_fd);
+	exit (0);
 }

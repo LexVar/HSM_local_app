@@ -7,12 +7,10 @@ int pipe_fd;
 struct request req;
 
 // response structure
-struct response resp;
+struct request resp;
 
 int main (void)
 {
-	int bytes;
-
 	// load cryptography libraries
 	init_crypto_state();
 
@@ -20,11 +18,16 @@ int main (void)
 	signal(SIGINT, cleanup);
 
 	// Creates the named pipe if it doesn't exist yet
-        if ((mkfifo(PIPE_NAME, O_CREAT|O_EXCL|0600)<0) && (errno!= EEXIST))
+        if ((mkfifo(PIPE_NAME, S_IFIFO|0660)<0) && (errno!= EEXIST))
         {
                 perror("[SERVER] Cannot create pipe: ");
                 exit(-1);
         }
+
+	// if ((pipe_fd = open(PIPE_NAME, O_RDWR)) < 0) {
+	//         perror("[SERVER] Cannot open pipe for reading: ");
+	//         exit(0);
+	// }
 
 	while(1)
 	{
@@ -100,13 +103,13 @@ int main (void)
 		/* set requests attributes */
 		resp.op_code = req.op_code;
 
+		// wait for client to open pipe for reading
+		sleep (1);
 		/* --------------------------------------------------- */
 		/* Send response back to client */
-		send_to_connection(pipe_fd, &resp, sizeof(struct response));
+		send_to_connection(pipe_fd, &resp, sizeof(struct request));
 
 		printf("[SERVER] Sent Operation %d....\n", resp.op_code);
-
-		sleep (2);
 	}
 
 	return 0;
