@@ -48,6 +48,7 @@ struct gen_key_request {
 };
 
 struct gen_key_response {
+	short int msg_size;		// Size of message with encrypted key
 	char msg[DATA_SIZE];		// Generated encrypted and signed symmetric key
 	char key_id[ID_SIZE];		// Id of generated key
 };

@@ -149,15 +149,39 @@ int main(void)
 
 		switch (resp.op_code)
 		{
-			case 3:
+			case 2: // Change PIN
+				if (resp.status == 0)
+					printf ("[CLIENT] PIN was changed succesfully\n");
+				break;
+			case 3: // Encrypt + authenticate data
 				printf ("[CLIENT] Encrypted data (\"data.enc\"):\n%s\n", resp.data.data);
 				write_to_file ("data.enc", resp.data.data, resp.data.data_size);
 
 				break;
-			case 4:
+			case 4: // Decrypt + authenticate data
 				printf ("[CLIENT] Decrypted data (\"data.txt\"):\n%s\n", resp.data.data);
 				write_to_file ("data.txt", resp.data.data, resp.data.data_size);
 
+				break;
+			case 5: // Sign data
+				printf ("[CLIENT] Signature: (\"signature.txt\"):\n%s\n", resp.sign.signature);
+				write_to_file ("signature.txt", resp.sign.signature, SIGNATURE_SIZE);
+				break;
+			case 6: // Verify signature
+				if (resp.status == 0)
+					printf ("[CLIENT] Signature successfully verified\n");
+				break;
+			case 7: // Import public key
+				if (resp.status == 0)
+					printf ("[CLIENT] Public key successfully saved\n");
+				break;
+			case 8: // Generate new key
+				printf ("[CLIENT] Generated encrypted key (\"new_key.enc\"): \n%s\n", resp.gen_key.msg);
+				write_to_file ("new_key.enc", resp.gen_key.msg, resp.gen_key.msg_size);
+				break;
+			case 9: // Save key
+				if (resp.status == 0)
+					printf ("[CLIENT] Saved new symmetric key\n");
 				break;
 			default:
 				break;
