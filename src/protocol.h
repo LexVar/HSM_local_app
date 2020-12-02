@@ -3,7 +3,8 @@
 
 #define DATA_SIZE 65536		// 1 MB message size
 #define HASH_SIZE 32		// 256 bit hash from SHA-256
-#define SIGNATURE_SIZE 256	// 768 bit signature from curve P-384
+#define SIGNATURE_SIZE 128	// RSA 1024 bit test key
+// #define SIGNATURE_SIZE 96	// 768 bit signature from curve P-384
 #define ID_SIZE 20
 #define PIN_SIZE 10
 #define KEY_SIZE 16		// Symmetric key size - 256 + 128 bits
@@ -72,19 +73,19 @@ struct sign_request {
 };
 
 struct sign_response {
-	unsigned char signature[SIGNATURE_SIZE];	// Generated signature
+	char signature[SIGNATURE_SIZE];	// Generated signature
 };
 // ----------------------
 
 // Verify document signature request, response structures
-struct verify_ds_request {
+struct verify_request {
+	char signature[SIGNATURE_SIZE]; // Data signature
 	char entity_id[ID_SIZE];	// ID of entity who signed the data
 	short int data_size;
 	char data[DATA_SIZE];		// Data signed
-	unsigned char signature[SIGNATURE_SIZE]; // Generated signature
 };
 
-struct verify_ds_response {
+struct verify_response {
 };
 // ----------------------
 
@@ -111,7 +112,7 @@ struct request {
 		struct gen_key_request gen_key;
 		struct save_key_request save_key;
 		struct sign_request sign;
-		struct verify_ds_request verify_ds;
+		struct verify_request verify;
 		struct import_pub_request import_pub;
 	};
 };
@@ -129,7 +130,7 @@ struct response {
 		struct gen_key_response gen_key;
 		struct save_key_response save_key;
 		struct sign_response sign;
-		struct verify_ds_response verify_ds;
+		struct verify_response verify;
 		struct import_pub_response import_pub;
 	};
 };

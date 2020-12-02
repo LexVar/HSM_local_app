@@ -7,6 +7,7 @@
 #include <signal.h>
 #include "../protocol.h"
 #include "../functions.c"
+#include "crypto/sign.h"
 #include "crypto/crypto.h"
 
 void new_key(char * key_file);

@@ -1,5 +1,6 @@
 #include "crypto.h"
 #include "aes/aes_ctr.c"
+#include "sign.c"
 
 void init_crypto_state ()
 {

@@ -64,7 +64,7 @@ void * write_to_file (char * filename, char * content, int fsize)
 		fwrite(content, 1, fsize, f);
 		fclose(f);
 
-		content[fsize] = 0;
+		// content[fsize] = 0;
 	}
 
 	return f;
@@ -87,7 +87,7 @@ int read_from_file (char * filename, char * content)
 		fread(content, 1, fsize, f);
 		fclose(f);
 
-		content[fsize] = 0;
+		// content[fsize] = 0;
 	}
 
 	return fsize;

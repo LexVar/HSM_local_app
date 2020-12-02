@@ -58,15 +58,15 @@ int main(void)
 				break;
 			case 6:	// Sign message
 				printf("Data filename: ");
-				if ((req.verify_ds.data_size = get_attribute_from_file(req.verify_ds.data)) == 0)
+				if ((req.verify.data_size = get_attribute_from_file(req.verify.data)) == 0)
 					continue;
 
 				printf("Signature filename: ");
-				if (get_attribute_from_file((char * )req.verify_ds.signature) == 0)
+				if (get_attribute_from_file(req.verify.signature) == 0)
 					continue;
 
 				printf("Entity's ID: ");
-				if (fgets(req.verify_ds.entity_id, ID_SIZE, stdin) == NULL)
+				if (fgets(req.verify.entity_id, ID_SIZE, stdin) == NULL)
 				{
 					printf ("[CLIENT] Error getting ID, try again..\n");
 					continue;
@@ -165,10 +165,10 @@ int main(void)
 				break;
 			case 5: // Sign data
 				printf ("[CLIENT] Signature: (\"signature.txt\"):\n%s\n", resp.sign.signature);
-				write_to_file ("signature.txt", (char *)resp.sign.signature, SIGNATURE_SIZE);
+				write_to_file ("signature.txt", resp.sign.signature, SIGNATURE_SIZE);
 				break;
 			case 6: // Verify signature
-				if (resp.status == 0)
+				if (resp.status != 0)
 					printf ("[CLIENT] Signature successfully verified\n");
 				break;
 			case 7: // Import public key
