@@ -12,6 +12,10 @@
 #include <openssl/modes.h>
 #include <openssl/rsa.h>
 #include <openssl/pem.h>
+#include <openssl/sha.h>
+#include <sys/types.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
 
 #include "../../protocol.h"
 
@@ -24,6 +28,7 @@ typedef struct
 } ctr_state;
 
 void init_crypto_state ();
+int simpleSHA256(void * input, unsigned long length, unsigned char * md);
 int encrypt_private (unsigned char * from, int flen, unsigned char * to);
 int decrypt_public (int bytes, unsigned char * from, unsigned char * to);
 void concatenate(unsigned char * dest, unsigned char * src, int start, int length);

@@ -3,16 +3,32 @@
 
 void init_crypto_state ()
 {
+	OpenSSL_add_all_digests();
 	OpenSSL_add_all_algorithms();
 	OpenSSL_add_all_ciphers();
 	ERR_load_crypto_strings();
+}
+
+int simpleSHA256(void * input, unsigned long length, unsigned char * md)
+{
+    SHA256_CTX context;
+    if(!SHA256_Init(&context))
+        return -1;
+
+    if(!SHA256_Update(&context, (unsigned char*)input, length))
+        return -1;
+
+    if(!SHA256_Final(md, &context))
+        return -1;
+
+    return 0;
 }
 
 // Returns number of bytes encrypted
 int encrypt_private (unsigned char * from, int flen, unsigned char * to)
 {
 	RSA * rsa = RSA_new();
-	FILE * f = fopen("Alice/Alice.pem", "r");
+	FILE * f = fopen("keys/Alice.pem", "r");
 	void * result;
 	int bytes = -1;
 
@@ -28,6 +44,7 @@ int encrypt_private (unsigned char * from, int flen, unsigned char * to)
 		{
 			// Sign with private key
 			bytes = RSA_private_encrypt(flen, from, to, rsa, RSA_PKCS1_PADDING);
+			// printf ("rsa_size: %d\n", RSA_size(rsa)-11);
 			if (bytes == -1)
 				printf("Error signing with private key..\n");
 		}
@@ -40,8 +57,12 @@ int encrypt_private (unsigned char * from, int flen, unsigned char * to)
 int decrypt_public(int bytes, unsigned char * from, unsigned char * to)
 {
 	RSA * rsa = RSA_new();
-	FILE * f = fopen("Alice/Alice.pub", "r");
+	FILE * f = fopen("keys/Alice.pub", "r");
+	int status = -1;
 	void * result;
+
+	int line;
+	const char *error;
 
 	if (f != NULL)
 	{
@@ -54,10 +75,14 @@ int decrypt_public(int bytes, unsigned char * from, unsigned char * to)
 			printf ("Error reading public key.\n");
 		// Decrypt with public key, verifies signature
 		else
-			bytes = RSA_public_decrypt(bytes, from, to, rsa, RSA_PKCS1_PADDING);
+			status = RSA_public_decrypt(bytes, from, to, rsa, RSA_NO_PADDING);
+		printf ("rsa_size: %d\n", RSA_size(rsa)-11);
+		ERR_get_error_line(&error, &line);
+		printf ("error: %s, line %d\n", error, line);
+		printf ("to: %s\n", to);
 	}
 	RSA_free(rsa);
-	return bytes;
+	return status;
 }
 
 void concatenate(unsigned char * dest, unsigned char * src, int start, int length)

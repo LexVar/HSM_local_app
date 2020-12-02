@@ -2,10 +2,12 @@
 
 int pipe_fd;		// pipe file descriptor
 struct request req;	// request structure
-struct request resp;	// response structure
+struct response resp;	// response structure
 
 int main (void)
 {
+	unsigned char md[HASH_SIZE];
+	unsigned char sign[SIGNATURE_SIZE];
 	// Redirects SIGINT (CTRL-c) to cleanup()
 	signal(SIGINT, cleanup);
 
@@ -41,7 +43,7 @@ int main (void)
 		/* Perform operation */
 		switch (req.op_code)
 		{
-			case 3:
+			case 3: // Encrypt + authenticate data
 				// TEMPORARY
 				// write data to file to pass as argument
 				write_to_file ("messages/plaintext.txt", req.data.data, req.data.data_size);
@@ -52,7 +54,7 @@ int main (void)
 				// TODO - Set status according to operation success
 				resp.status = 0;
 				break;
-			case 4:
+			case 4: // Decrypt + authenticate data
 				// TEMPORARY
 				// write data to file to pass as argument
 				write_to_file ("messages/ciphertext.enc", req.data.data, req.data.data_size);
@@ -63,22 +65,32 @@ int main (void)
 				// TODO - Set status according to operation success
 				resp.status = 0;
 				break;
-			case 5:
-				// Encrypt(sign) with private key
-				// bytes = encrypt_private(enc_out, msg_size, signature);
-				break;
-			case 6:
-				// Verify signature
-				// bytes = decrypt_public(bytes, signature, to);
+			case 5: // Encrypt(sign) with private key
+				resp.status = simpleSHA256(req.sign.data, req.sign.data_size, md);
+				if (resp.status != -1)
+				{
+					resp.status = encrypt_private(md, HASH_SIZE, resp.sign.signature);
+					if (resp.status != -1)
+						printf ("[SERVER] Data succesfully signed\n");
+				}
+				else
+					printf ("[SERVER] Error computing hash SHA256\n");
 
-				// if (bytes == -1)
-				// {
-				//         response.response.status = -1;
-				//         printf ("Error verifying signature..\n");
-				//         break;
-				// }
-				// else
-				//         printf("Signature verified..\n");
+				break;
+			case 6: // Verify signature
+				resp.status = decrypt_public(SIGNATURE_SIZE, req.verify_ds.signature, sign);
+				if (resp.status != -1)
+				{
+					resp.status = simpleSHA256(req.verify_ds.data, req.verify_ds.data_size, md);
+					if (resp.status != -1 && strncmp((char *)md, (char *)req.verify_ds.signature, HASH_SIZE) == 0)
+					{
+						printf ("[SERVER] Signature verified successfully\n");
+						resp.status = 0;
+					}
+				}
+				else
+					printf ("[SERVER] Error decrypting signature\n");
+				break;
 			case 7:
 				// Import public key
 			case 8:

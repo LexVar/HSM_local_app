@@ -3,8 +3,8 @@
 
 #define DATA_SIZE 65536		// 1 MB message size
 #define HASH_SIZE 32		// 256 bit hash from SHA-256
-#define SIGNATURE_SIZE 96	// 768 bit signature from curve P-384
-#define ID_SIZE 10
+#define SIGNATURE_SIZE 256	// 768 bit signature from curve P-384
+#define ID_SIZE 20
 #define PIN_SIZE 10
 #define KEY_SIZE 16		// Symmetric key size - 256 + 128 bits
 #define ECC_KEY_SIZE 48		// ECC 384 bit keys
@@ -72,7 +72,7 @@ struct sign_request {
 };
 
 struct sign_response {
-	char signature[SIGNATURE_SIZE];	// Generated signature
+	unsigned char signature[SIGNATURE_SIZE];	// Generated signature
 };
 // ----------------------
 
@@ -81,7 +81,7 @@ struct verify_ds_request {
 	char entity_id[ID_SIZE];	// ID of entity who signed the data
 	short int data_size;
 	char data[DATA_SIZE];		// Data signed
-	char signature[SIGNATURE_SIZE]; // Generated signature
+	unsigned char signature[SIGNATURE_SIZE]; // Generated signature
 };
 
 struct verify_ds_response {

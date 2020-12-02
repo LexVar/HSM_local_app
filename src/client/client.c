@@ -62,7 +62,7 @@ int main(void)
 					continue;
 
 				printf("Signature filename: ");
-				if (get_attribute_from_file(req.verify_ds.signature) == 0)
+				if (get_attribute_from_file((char * )req.verify_ds.signature) == 0)
 					continue;
 
 				printf("Entity's ID: ");
@@ -165,7 +165,7 @@ int main(void)
 				break;
 			case 5: // Sign data
 				printf ("[CLIENT] Signature: (\"signature.txt\"):\n%s\n", resp.sign.signature);
-				write_to_file ("signature.txt", resp.sign.signature, SIGNATURE_SIZE);
+				write_to_file ("signature.txt", (char *)resp.sign.signature, SIGNATURE_SIZE);
 				break;
 			case 6: // Verify signature
 				if (resp.status == 0)
