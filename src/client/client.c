@@ -170,6 +170,8 @@ int main(void)
 			case 6: // Verify signature
 				if (resp.status != 0)
 					printf ("[CLIENT] Signature successfully verified\n");
+				else
+					printf ("[CLIENT] Signature failed verification\n");
 				break;
 			case 7: // Import public key
 				if (resp.status == 0)

@@ -28,9 +28,6 @@ typedef struct
 } ctr_state;
 
 void init_crypto_state ();
-int simpleSHA256(void * input, unsigned long length, unsigned char * md);
-int encrypt_private (unsigned char * from, int flen, unsigned char * to);
-int decrypt_public (int bytes, unsigned char * from, unsigned char * to);
 void concatenate(unsigned char * dest, unsigned char * src, int start, int length);
 int compare_mac(unsigned char * mac1, unsigned char * mac2, int length);
 void read_key(unsigned char * key, char * key_file);

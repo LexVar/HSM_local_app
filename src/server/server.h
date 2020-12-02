@@ -10,6 +10,9 @@
 #include "crypto/sign.h"
 #include "crypto/crypto.h"
 
+#define PRIVATE_KEY "keys/test.key"
+
+void get_cert_path (char * entity, char * cert_path);
 void new_key(char * key_file);
 void cleanup();
 

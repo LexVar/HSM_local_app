@@ -6,6 +6,7 @@ struct response resp;	// response structure
 
 int main (void)
 {
+	char keyfile[ID_SIZE];
 	// Redirects SIGINT (CTRL-c) to cleanup()
 	signal(SIGINT, cleanup);
 
@@ -64,7 +65,7 @@ int main (void)
 				resp.status = 0;
 				break;
 			case 5: // Encrypt(sign) with private key
-				resp.status = sign_data((unsigned char *)req.sign.data, req.sign.data_size, "keys/test.key", (unsigned char *)resp.sign.signature);
+				resp.status = sign_data((unsigned char *)req.sign.data, req.sign.data_size, PRIVATE_KEY, (unsigned char *)resp.sign.signature);
 				if (resp.status == 0)
 					printf ("[SERVER] Data succesfully signed\n");
 				else
@@ -72,7 +73,8 @@ int main (void)
 
 				break;
 			case 6: // Verify signature
-				resp.status = verify_data((unsigned char *)req.verify.data, req.verify.data_size, "keys/test.cert", (unsigned char *)req.verify.signature, SIGNATURE_SIZE);
+				get_cert_path(req.verify.entity_id, keyfile);
+				resp.status = verify_data((unsigned char *)req.verify.data, req.verify.data_size, keyfile, (unsigned char *)req.verify.signature, SIGNATURE_SIZE);
 				if (resp.status != 0)
 					printf ("[SERVER] Signature verified successfully\n");
 				else
@@ -107,6 +109,13 @@ int main (void)
 	}
 
 	return 0;
+}
+
+void get_cert_path (char * entity, char * cert_path)
+{
+	strcpy(cert_path, "keys/");
+	strncat(cert_path, entity, strlen(entity)-1);
+	strcat(cert_path, ".cert");
 }
 
 // Generates new AES key, saves to aes.key file
