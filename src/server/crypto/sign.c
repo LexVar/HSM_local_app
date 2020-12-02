@@ -83,16 +83,13 @@ void *map_file(FILE *fp, size_t len)
     return buf;
 }
 
-int sign_data(char * file, char * privkey)
+// int sign_data(char * file, char * privkey)
+int sign_data(unsigned char * data, int data_size, char * privkey, unsigned char * signature)
 {
-    struct stat sb;
-    unsigned char *hash, *buf, *sig;
+    unsigned char *hash, *sig;
     unsigned int hashlen;
     const EVP_MD *sha256;
-    FILE *fp, *fsig;
     unsigned int siglen;
-
-    fsig = fopen("sign.txt", "wb");
 
     if (!SSL_library_init())
         return 1;
@@ -104,44 +101,17 @@ int sign_data(char * file, char * privkey)
 
     sha256 = EVP_sha256();
 
-    if (stat(file, &sb) == -1) {
-        perror("stat");
-        return 1;
-    }
-
-    if (!(fp = fopen(file, "r"))) {
-        perror("fopen");
-        return 1;
-    }
-
-    if (!(buf = map_file(fp, sb.st_size))) {
-        perror("mmap");
-        fclose(fp);
-        return 1;
-    }
-
-    if (!(hash = simple_digest(buf, sb.st_size, &hashlen))) {
+    if (!(hash = simple_digest(data, data_size, &hashlen))) {
         fprintf(stderr, "Could not generate hash!\n");
-        munmap(buf, sb.st_size);
-        fclose(fp);
         return 1;
     }
 
     if (!(sig = simple_sign(privkey, hash, hashlen, &siglen))) {
         fprintf(stderr, "Could not generate signature!\n");
-        munmap(buf, sb.st_size);
-        fclose(fp);
         return 1;
     }
 
-    if (fsig != NULL)
-    {
-    	fwrite(sig, 1, siglen, fsig);
-    	fclose(fsig);
-    }
-
-    munmap(buf, sb.st_size);
-    fclose(fp);
+    strncpy((char *)signature, (char *)sig, siglen);
 
     return 0;
 }
@@ -203,11 +173,12 @@ int simple_verify(char *certpath, unsigned char *sig, unsigned int sigsz, unsign
     return ret;
 }
 
-int verify_data(char * file, char * certfile, char * sigfile)
+// int verify_data(char * file, char * certfile, char * sigfile)
+int verify_data(unsigned char * data, int data_size, char * certfile, unsigned char * signature, int siglen)
 {
-    struct stat sb, filesb;
-    unsigned char *sig, *buf;
-    FILE *plaintextfp, *sigfp;
+    // struct stat sb, filesb;
+    // unsigned char *sig, *buf;
+    // FILE *plaintextfp, *sigfp;
     const EVP_MD *sha256;
     int res;
 
@@ -219,50 +190,25 @@ int verify_data(char * file, char * certfile, char * sigfile)
     OpenSSL_add_all_ciphers();
     ERR_load_crypto_strings();
 
-    if (stat(sigfile, &sb) == -1) {
-        perror("stat");
-        return 1;
-    }
-
-    if (!(sigfp = fopen(sigfile, "r"))) {
-        perror("fopen");
-        return 1;
-    }
-
     sha256 = EVP_sha256();
 
-    if (!(sig = map_file(sigfp, sb.st_size))) {
-        perror("mmap");
-        fclose(sigfp);
-        return 1;
-    }
+    // if (!(sig = map_file(sigfp, sb.st_size))) {
+    //     perror("mmap");
+    //     fclose(sigfp);
+    //     return 1;
+    // }
 
-    if (stat(file, &filesb) == -1) {
-        perror("stat");
-        return 1;
-    }
+    // if (!(buf = map_file(plaintextfp, (unsigned int)sb.st_size))) {
+    //     perror("mmap");
+    //     return 1;
+    // }
 
-    if (!(plaintextfp = fopen(file, "r"))) {
-        perror("fopen");
-        return 1;
-    }
-
-    if (!(buf = map_file(plaintextfp, (unsigned int)sb.st_size))) {
-        perror("mmap");
-        return 1;
-    }
-
-    if ((res = simple_verify(certfile, sig, sb.st_size, buf, filesb.st_size))) {
+    if ((res = simple_verify(certfile, signature, siglen, data, data_size))) {
         printf("[+] Verification succeeded!\n");
     } else {
         ERR_print_errors_fp(stderr);
         printf("[-] Verification failed!\n");
     }
 
-    munmap(buf, sb.st_size);
-    munmap(sig, EVP_MD_size(sha256)*4);
-    fclose(plaintextfp);
-    fclose(sigfp);
-    
     return res;
 }

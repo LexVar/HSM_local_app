@@ -64,22 +64,15 @@ int main (void)
 				resp.status = 0;
 				break;
 			case 5: // Encrypt(sign) with private key
-				write_to_file ("m1.txt", req.sign.data, req.sign.data_size);
-				resp.status = sign_data("m1.txt", "keys/test.key");
+				resp.status = sign_data((unsigned char *)req.sign.data, req.sign.data_size, "keys/test.key", (unsigned char *)resp.sign.signature);
 				if (resp.status == 0)
-				{
-					// Read plaintext from file
-					read_from_file ("sign.txt", resp.sign.signature);
 					printf ("[SERVER] Data succesfully signed\n");
-				}
 				else
 					printf ("[SERVER] Error signing data\n");
 
 				break;
 			case 6: // Verify signature
-				write_to_file ("sign.txt", req.verify.signature, SIGNATURE_SIZE);
-				write_to_file ("m1.txt", req.verify.data, req.verify.data_size);
-				resp.status = verify_data("m1.txt", "keys/test.cert", "sign.txt");
+				resp.status = verify_data((unsigned char *)req.verify.data, req.verify.data_size, "keys/test.cert", (unsigned char *)req.verify.signature, SIGNATURE_SIZE);
 				if (resp.status != 0)
 					printf ("[SERVER] Signature verified successfully\n");
 				else
