@@ -58,9 +58,9 @@ int main (void)
 				// write data to file to pass as argument
 				write_to_file ("messages/ciphertext.enc", req.data.data, req.data.data_size);
 				// Decrypt and authenticate data
-				decrypt("messages/ciphertext.enc", "messages/plaintext.msg", "keys/aes.key", "keys/mac.key");
+				decrypt("messages/ciphertext.enc", "messages/plaintext.txt", "keys/aes.key", "keys/mac.key");
 				// Read plaintext from file
-				resp.data.data_size = read_from_file ("messages/plaintext.msg", resp.data.data);
+				resp.data.data_size = read_from_file ("messages/plaintext.txt", resp.data.data);
 				// TODO - Set status according to operation success
 				resp.status = 0;
 				break;

@@ -12,3 +12,6 @@ server:  ${SERVER_DIR}/server.c ${CRYPTO_DIR}/crypto.c
 
 client: ${CLIENT_DIR}/client.c
 	${CC} ${CFLAGS} ${CLIENT_DIR}/client.c -o ${BIN_DIR}/client
+
+clean:
+	rm data.txt data.enc signature.txt bin/sign.txt

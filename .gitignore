@@ -1,7 +1,7 @@
 keys/*
 messages/*
-bin/*
-*.bin
 *.swp
 *.txt
 *.enc
+*.key
+*.cert
