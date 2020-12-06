@@ -11,7 +11,7 @@ int main (void)
 	signal(SIGINT, cleanup);
 
 	// Creates the named pipe if it doesn't exist yet
-        if ((mkfifo(PIPE_NAME, S_IFIFO|0660)<0) && (errno!= EEXIST))
+        if ((mkfifo(PIPE_NAME, S_IFIFO|0600)<0) && (errno!= EEXIST))
         {
                 perror("[SERVER] Cannot create pipe: ");
                 exit(-1);

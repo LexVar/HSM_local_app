@@ -9,12 +9,9 @@ unsigned char *simple_digest(unsigned char *buf, unsigned int len, unsigned int 
 
     ctx = EVP_MD_CTX_new();
     unsigned char *ret;
-    int mdsz;
     const EVP_MD *sha256;
 
     sha256 = EVP_sha256();
-
-    mdsz = EVP_MD_size(sha256);
 
     if (!(ret = (unsigned char *)malloc(EVP_MAX_MD_SIZE)))
     {
@@ -35,7 +32,6 @@ unsigned char *simple_sign(char *keypath, unsigned char *data, unsigned int len,
     EVP_MD_CTX *ctx;
     EVP_PKEY *pkey;
     const EVP_MD *sha256;
-    int mdsz;
     unsigned char *sig;
     FILE *keyfp;
 
@@ -45,7 +41,6 @@ unsigned char *simple_sign(char *keypath, unsigned char *data, unsigned int len,
     }
 
     sha256 = EVP_sha256();
-    mdsz = EVP_MD_size(sha256);
 
     if (!(pkey = PEM_read_PrivateKey(keyfp, NULL, NULL, NULL))) {
         fprintf(stderr, "PEM_read_PrivateKey failed!\n");
@@ -90,13 +85,10 @@ int sign_data(unsigned char * data, int data_size, char * privkey, unsigned char
 {
     unsigned char *hash, *sig;
     unsigned int hashlen;
-    const EVP_MD *sha256;
     unsigned int siglen;
 
     if (!SSL_library_init())
         return 1;
-
-    sha256 = EVP_sha256();
 
     if (!(hash = simple_digest(data, data_size, &hashlen))) {
         fprintf(stderr, "Could not generate hash!\n");
@@ -172,13 +164,10 @@ int simple_verify(char *certpath, unsigned char *sig, unsigned int sigsz, unsign
 
 int verify_data(unsigned char * data, int data_size, char * certfile, unsigned char * signature, int siglen)
 {
-    const EVP_MD *sha256;
     int res;
 
     if (!SSL_library_init())
         return 1;
-
-    sha256 = EVP_sha256();
 
     if ((res = simple_verify(certfile, signature, siglen, data, data_size))) {
         printf("[+] Verification succeeded!\n");

@@ -7,8 +7,8 @@ SERVER_DIR = ./src/server
 CRYPTO_DIR = ${SERVER_DIR}/crypto
 BIN_DIR = ./bin
 
-server:  ${SERVER_DIR}/server.c ${CRYPTO_DIR}/crypto.c
-	${CC} ${CFLAGS} ${LIBS} ${SERVER_DIR}/server.c ${CRYPTO_DIR}/crypto.c -o ${BIN_DIR}/server
+server:  ${SERVER_DIR}/server.c ${CRYPTO_DIR}/crypto.c ${CRYPTO_DIR}/sign.c
+	${CC} ${CFLAGS} ${LIBS} ${SERVER_DIR}/server.c ${CRYPTO_DIR}/crypto.c ${CRYPTO_DIR}/sign.c -o ${BIN_DIR}/server
 
 client: ${CLIENT_DIR}/client.c
 	${CC} ${CFLAGS} ${CLIENT_DIR}/client.c -o ${BIN_DIR}/client

@@ -2,20 +2,9 @@
 #define CRYPTO_H
 
 #include <openssl/aes.h>
-/* #include <openssl/modes.h> */
-/* #include <openssl/crypto.h> */
 #include <openssl/rand.h>
 #include <openssl/hmac.h>
 #include <openssl/err.h>
-#include <openssl/evp.h>
-#include <openssl/evperr.h>
-#include <openssl/modes.h>
-#include <openssl/rsa.h>
-#include <openssl/pem.h>
-#include <openssl/sha.h>
-#include <sys/types.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
 
 #include "../../protocol.h"
 
