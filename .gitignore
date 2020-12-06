@@ -1,7 +1,9 @@
-keys/*
-messages/*
+/bin/keys/*
+/bin/msgs/*
 *.swp
 *.txt
 *.enc
 *.key
 *.cert
+*.crt
+*.pem

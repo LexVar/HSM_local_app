@@ -73,7 +73,9 @@ int main (void)
 
 				break;
 			case 6: // Verify signature
+				// Get key path from secure storage
 				get_cert_path(req.verify.entity_id, keyfile);
+
 				resp.status = verify_data((unsigned char *)req.verify.data, req.verify.data_size, keyfile, (unsigned char *)req.verify.signature, SIGNATURE_SIZE);
 				if (resp.status != 0)
 					printf ("[SERVER] Signature verified successfully\n");
@@ -81,6 +83,11 @@ int main (void)
 					printf ("[SERVER] Error verifying signature\n");
 				break;
 			case 7: // Import public key
+				get_cert_path(req.import_pub.entity_id, keyfile);
+				if (write_to_file(keyfile, req.import_pub.public_key, PUB_KEY_SIZE) != NULL)
+					resp.status = 0;
+				else
+					resp.status = 1;
 				break;
 			case 8:
 				new_key("keys/aes.key");

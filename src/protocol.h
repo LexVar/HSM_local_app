@@ -9,7 +9,8 @@
 #define PIN_SIZE 10
 #define KEY_SIZE 16		// Symmetric key size - 256 + 128 bits
 #define ECC_KEY_SIZE 48		// ECC 384 bit keys
-#define PUB_KEY_SIZE 96		// ECC 768 bit public keys
+// #define PUB_KEY_SIZE 96		// ECC 768 bit public keys
+#define PUB_KEY_SIZE 1024		// ECC 768 bit public keys
 
 // Authentication request, response structures
 struct auth_request {
