@@ -9,8 +9,9 @@
 #define PIN_SIZE 10
 #define KEY_SIZE 16		// Symmetric key size - 256 + 128 bits
 #define ECC_KEY_SIZE 48		// ECC 384 bit keys
-// #define PUB_KEY_SIZE 96		// ECC 768 bit public keys
-#define PUB_KEY_SIZE 1024		// ECC 768 bit public keys
+// #define PUB_KEY_SIZE 96	// ECC 768 bit public keys
+#define PUB_KEY_SIZE 1024	// ECC 768 bit public keys
+// For RSA ciphertext size is the size of the key 1024 bits - 1024/8 bytes ciphertext
 
 // Authentication request, response structures
 struct auth_request {
