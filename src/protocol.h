@@ -3,6 +3,7 @@
 
 #define DATA_SIZE 65536		// 1 MB message size
 #define HASH_SIZE 32		// 256 bit hash from SHA-256
+#define CIPHER_SIZE 128
 #define SIGNATURE_SIZE 128	// RSA 1024 bit test key
 // #define SIGNATURE_SIZE 96	// 768 bit signature from curve P-384
 #define ID_SIZE 30
@@ -52,14 +53,14 @@ struct gen_key_request {
 
 struct gen_key_response {
 	short int msg_size;		// Size of message with encrypted key
-	char msg[DATA_SIZE];		// Generated encrypted and signed symmetric key
+	char msg[CIPHER_SIZE];		// Generated encrypted and signed symmetric key
 	char key_id[ID_SIZE];		// Id of generated key
 };
 // ----------------------
 
 // Save Symmetric key request, response structures
 struct save_key_request {
-	char msg[KEY_SIZE];		// Encrypted and signed key
+	char msg[CIPHER_SIZE];		// Encrypted and signed key
 	char entity_id[ID_SIZE];	// Id of entity who sent the symmetric key
 	char key_id[ID_SIZE];		// Id of symmetric key to encrypt data
 };
@@ -101,6 +102,15 @@ struct import_pub_response {
 };
 // ----------------------
 
+// List keys request, response structures
+struct list_keys_request {
+};
+
+struct list_keys_response {
+	char list[DATA_SIZE];		// List of keys
+};
+// ----------------------
+
 // Main request structure with base parameters (op_code, status) and
 // union structures, only one is used, depending on the operation
 struct request {
@@ -116,6 +126,7 @@ struct request {
 		struct sign_request sign;
 		struct verify_request verify;
 		struct import_pub_request import_pub;
+		struct list_keys_request list;
 	};
 };
 
@@ -134,6 +145,7 @@ struct response {
 		struct sign_response sign;
 		struct verify_response verify;
 		struct import_pub_response import_pub;
+		struct list_keys_response list;
 	};
 };
 

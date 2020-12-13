@@ -20,6 +20,7 @@ int main(void)
 		printf(" 7. Import public key\n");
 		printf(" 8. Share key\n");
 		printf(" 9. Save key\n");
+		printf(" 10. List comm keys\n");
 		printf(" 0. Quit\n");
 		printf("---------------------\n\n");
 
@@ -118,6 +119,8 @@ int main(void)
 				if (get_attribute_from_file(req.save_key.msg) == 0)
 					continue;
 				break;
+			case 10:
+				break;
 			case 0:
 				printf("[CLIENT] Stopping client..\n");
 				exit(0);
@@ -184,6 +187,10 @@ int main(void)
 			case 9: // Save key
 				if (resp.status == 0)
 					printf ("[CLIENT] Saved new symmetric key\n");
+				break;
+			case 10:
+				printf ("List of keys:\n");
+				printf("%s", resp.list.list);
 				break;
 			default:
 				break;

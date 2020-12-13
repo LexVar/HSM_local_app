@@ -1,12 +1,55 @@
 #include "crypto.h"
 #include "aes/aes_ctr.c"
 
+// Generates new AES key, saves to aes.key file
+void new_key(char * key_file)
+{
+	FILE *fout;
+	unsigned char key[KEY_SIZE];
+
+	if ( !RAND_bytes(key, sizeof(key)) )
+		exit(-1);
+
+	fout = fopen(key_file, "w");
+	if (fout != NULL)
+	{
+		fwrite(key, sizeof(char), sizeof(key), fout);
+		fclose(fout);
+	}
+	else
+		printf("Error generating key.\n");
+}
+
 void init_crypto_state ()
 {
 	OpenSSL_add_all_digests();
 	OpenSSL_add_all_algorithms();
 	OpenSSL_add_all_ciphers();
 	ERR_load_crypto_strings();
+}
+
+int simpleSHA256(void * input, unsigned long length, unsigned char * md)
+{
+	SHA256_CTX context;
+	if(!SHA256_Init(&context))
+	{
+		fprintf(stderr, "[CRYPTO] SHA256_Init failed\n");
+		return -1;
+	}
+
+	if(!SHA256_Update(&context, (unsigned char*)input, length))
+	{
+		fprintf(stderr, "[CRYPTO] SHA256_Update failed\n");
+		return -1;
+	}
+
+	if(!SHA256_Final(md, &context))
+	{
+		fprintf(stderr, "[CRYPTO] SHA256_Final failed\n");
+		return -1;
+	}
+
+	return 0;
 }
 
 void concatenate(unsigned char * dest, unsigned char * src, int start, int length)

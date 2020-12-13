@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
+#include <dirent.h>
 #include "../protocol.h"
 #include "../functions.c"
 #include "crypto/sign.h"
@@ -12,10 +13,11 @@
 #include "crypto/pubkey.c"
 #include "pkcs11.h"
 
-#define PRIVATE_KEY "keys/test.key"
+#define PRIVATE_KEY "keys/test.pem"
 
-void get_cert_path (char * entity, char * cert_path);
-void new_key(char * key_file);
+int get_list_comm_keys(char * list);
+void print_hex (char * data, int data_size);
+void get_key_path (char * entity, char * key_path, char * extension);
 void cleanup();
 
 #endif 

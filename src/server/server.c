@@ -7,6 +7,8 @@ struct response resp;	// response structure
 int main (void)
 {
 	char keyfile[ID_SIZE];
+	char key[CIPHER_SIZE];
+	unsigned char signature[SIGNATURE_SIZE];
 	// Redirects SIGINT (CTRL-c) to cleanup()
 	signal(SIGINT, cleanup);
 
@@ -25,23 +27,24 @@ int main (void)
 		// Receive request from client
 		receive_from_connection(pipe_fd, &req, sizeof(struct request));
 
-		printf("[SERVER] Received Operation %d....\n", req.op_code);
-
-		if (req.op_code == 0)
-		{
-			printf("\n[SERVER] Quitting...\n");
-			break;
-		}
-		else if (req.op_code < 2 || req.op_code > 9)
+		if (req.op_code < 1 || req.op_code > 10)
 		{
 			printf("n[SERVER] %d. Is not a valid operation\n", req.op_code);
 			continue;
 		}
 
+		printf("[SERVER] Received Operation %d....\n", req.op_code);
+
 		/* --------------------------------------------------- */
 		/* Perform operation */
 		switch (req.op_code)
 		{
+			case 1: // Authentication
+				// authenticate(req.auth.PIN);
+				break;
+			case 2: // Change PIN
+				// set_PIN(req.admin.PIN);
+				break;
 			case 3: // Encrypt + authenticate data
 				// TEMPORARY
 				// write data to file to pass as argument
@@ -74,7 +77,7 @@ int main (void)
 				break;
 			case 6: // Verify signature
 				// Get key path from secure storage
-				get_cert_path(req.verify.entity_id, keyfile);
+				get_key_path(req.verify.entity_id, keyfile, ".cert");
 
 				resp.status = verify_data((unsigned char *)req.verify.data, req.verify.data_size, keyfile, (unsigned char *)req.verify.signature, SIGNATURE_SIZE);
 				if (resp.status != 0)
@@ -83,14 +86,42 @@ int main (void)
 					printf ("[SERVER] Error verifying signature\n");
 				break;
 			case 7: // Import public key
-				get_cert_path(req.import_pub.entity_id, keyfile);
+				get_key_path(req.import_pub.entity_id, keyfile, ".cert");
 				if (write_to_file(keyfile, req.import_pub.public_key, PUB_KEY_SIZE) != NULL)
 					resp.status = 0;
 				else
 					resp.status = 1;
 				break;
-			case 8:
-				new_key("keys/aes.key");
+			case 8: // Share key
+
+				// Generate new symmetric key
+				get_key_path(req.gen_key.key_id, keyfile, ".key");
+				new_key(keyfile);
+				printf("keyfile: %s\n", keyfile);
+
+				// Read key from file
+				resp.gen_key.msg_size = read_from_file (keyfile, key);
+
+				// Sign key
+				resp.status = sign_data((unsigned char *)keyfile, resp.gen_key.msg_size, PRIVATE_KEY, (unsigned char *)signature);
+				// Concatenate signature and key
+				strncat(key, (char *)signature, SIGNATURE_SIZE);
+				
+				// Entities certificate path
+				strncpy(keyfile, req.gen_key.entity_id, strlen(req.gen_key.entity_id));
+				printf("cert: %s\n", keyfile);
+				strcat(keyfile, ".cert");
+				printf("cert: %s\n", keyfile);
+
+				pub_encrypt (keyfile, (unsigned char *)key, (size_t)(KEY_SIZE+SIGNATURE_SIZE), (unsigned char *)resp.gen_key.msg, (size_t *)(&resp.gen_key.msg_size));
+
+				print_hex (resp.gen_key.msg, resp.gen_key.msg_size);
+				break;
+			case 9: // Save key
+				private_decrypt (PRIVATE_KEY, (unsigned char *)key, CIPHER_SIZE, (unsigned char *)req.save_key.msg, (size_t)CIPHER_SIZE);
+				break;
+			case 10: // List avaiable secure comm keys
+				get_list_comm_keys (resp.list.list);
 				break;
 			case 0:
 				printf("[SERVER] Stopping server..\n");
@@ -118,30 +149,43 @@ int main (void)
 	return 0;
 }
 
-void get_cert_path (char * entity, char * cert_path)
+// .cert -> certificate
+// .key  -> private/symmetric key
+void get_key_path (char * entity, char * key_path, char * extension)
 {
-	strcpy(cert_path, "keys/");
-	strncat(cert_path, entity, strlen(entity)-1);
-	strcat(cert_path, ".cert");
+	key_path[0] = '\0';
+	strcpy(key_path, "keys/");
+	strncat(key_path, entity, strlen(entity)-1);
+	strcat(key_path, extension);
 }
 
-// Generates new AES key, saves to aes.key file
-void new_key(char * key_file)
+void print_hex (char * data, int data_size)
 {
-	FILE *fout;
-	unsigned char key[KEY_SIZE];
+	int i;
+	for (i = 0; i < data_size; i++)
+		printf("%x", data[i] & 0xff);
+	printf("\n");
+}
 
-	if ( !RAND_bytes(key, sizeof(key)) )
-		exit(-1);
-
-	fout = fopen(key_file, "w");
-	if (fout != NULL)
+int get_list_comm_keys(char * list)
+{
+	DIR *d;
+	struct dirent *dir;
+	d = opendir("./keys");
+	if (d)
 	{
-		fwrite(key, sizeof(char), sizeof(key), fout);
-		fclose(fout);
+		list[0] = '\0';
+		while ((dir = readdir(d)) != NULL)
+		{
+			if (strstr(dir->d_name, ".key") != NULL)
+			{
+				strncat (list, dir->d_name, strlen(dir->d_name));
+				strncat (list, "\n", 1);
+			}
+		}
+		closedir(d);
 	}
-	else
-		printf("Error generating key.\n");
+	return 0;
 }
 
 void cleanup()
