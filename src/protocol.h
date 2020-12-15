@@ -3,7 +3,7 @@
 
 #define DATA_SIZE 65536		// 1 MB message size
 #define HASH_SIZE 32		// 256 bit hash from SHA-256
-#define CIPHER_SIZE 128
+#define CIPHER_SIZE 500
 #define SIGNATURE_SIZE 128	// RSA 1024 bit test key
 // #define SIGNATURE_SIZE 96	// 768 bit signature from curve P-384
 #define ID_SIZE 30
@@ -52,15 +52,15 @@ struct gen_key_request {
 };
 
 struct gen_key_response {
-	short int msg_size;		// Size of message with encrypted key
-	char msg[CIPHER_SIZE];		// Generated encrypted and signed symmetric key
+	size_t msg_size;		// Size of message with encrypted key
+	unsigned char msg[CIPHER_SIZE];	// Generated encrypted and signed symmetric key
 	char key_id[ID_SIZE];		// Id of generated key
 };
 // ----------------------
 
 // Save Symmetric key request, response structures
 struct save_key_request {
-	char msg[CIPHER_SIZE];		// Encrypted and signed key
+	unsigned char msg[CIPHER_SIZE];	// Encrypted and signed key
 	char entity_id[ID_SIZE];	// Id of entity who sent the symmetric key
 	char key_id[ID_SIZE];		// Id of symmetric key to encrypt data
 };

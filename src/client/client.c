@@ -12,6 +12,7 @@ int main(void)
 	while (1) {
 
 		printf("\n--CLIENT OPERATIONS--\n");
+		printf(" 1. Authentication\n");
 		printf(" 2. Change PIN\n");
 		printf(" 3. Encrypt message\n");
 		printf(" 4. Decrypt message\n");
