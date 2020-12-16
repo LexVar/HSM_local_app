@@ -3,7 +3,7 @@
 
 #define DATA_SIZE 65536		// 1 MB message size
 #define HASH_SIZE 32		// 256 bit hash from SHA-256
-#define CIPHER_SIZE 500
+#define CIPHER_SIZE 128
 #define SIGNATURE_SIZE 128	// RSA 1024 bit test key
 // #define SIGNATURE_SIZE 96	// 768 bit signature from curve P-384
 #define ID_SIZE 30

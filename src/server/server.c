@@ -100,38 +100,35 @@ int main (void)
 				new_key(keyfile);
 
 				// Read key from file
-				resp.gen_key.msg_size = read_from_file (keyfile, (char *)key);
+				msg_size = read_from_file (keyfile, (char *)key);
 				// Sign key
-				resp.status = sign_data(key, resp.gen_key.msg_size, PRIVATE_KEY, signature);
+				// resp.status = sign_data(key, resp.gen_key.msg_size, PRIVATE_KEY, signature);
 				// Concatenate signature and key
-				strncat((char *)key, (char *)signature, SIGNATURE_SIZE);
-				msg_size = KEY_SIZE + SIGNATURE_SIZE;
+				// strncat((char *)key, (char *)signature, SIGNATURE_SIZE);
+				// msg_size = KEY_SIZE + SIGNATURE_SIZE;
 				
 				// Entities certificate path
 				get_key_path(req.gen_key.entity_id, keyfile, ".cert");
 				printf("key: \n");
 				print_chars (key, msg_size);
 
-				pub_encrypt (keyfile, key, msg_size, resp.gen_key.msg, NULL);
-
-				printf("cipher: \n");
-				print_chars (resp.gen_key.msg, resp.gen_key.msg_size);
-
+				pub_encrypt (keyfile, key, KEY_SIZE, resp.gen_key.msg, &(resp.gen_key.msg_size));
 				break;
 			case 9: // Save key
 				// Decrypt key + signature
 				private_decrypt (PRIVATE_KEY, req.save_key.msg, CIPHER_SIZE, key, &msg_size);
 				// Verify signature with public key
-				get_key_path(req.save_key.entity_id, keyfile, ".cert");
-				resp.status = verify_data(key, KEY_SIZE, keyfile, &key[KEY_SIZE], SIGNATURE_SIZE);
-				if (resp.status != 0)
-					printf ("[SERVER] Signature verified successfully\n");
-				else
-					printf ("[SERVER] Error verifying signature\n");
+				// get_key_path(req.save_key.entity_id, keyfile, ".cert");
+				// resp.status = verify_data(key, KEY_SIZE, keyfile, &key[KEY_SIZE], SIGNATURE_SIZE);
+				// if (resp.status != 0)
+				//         printf ("[SERVER] Signature verified successfully\n");
+				// else
+				//         printf ("[SERVER] Error verifying signature\n");
 
 
 				// save key in storage
-				get_key_path(req.gen_key.key_id, keyfile, ".key");
+				get_key_path(req.save_key.key_id, keyfile, ".key");
+				printf("keyfile: %s\n", keyfile);
 				write_to_file (keyfile, (char *)key, KEY_SIZE);
 				printf("key: \n");
 				print_chars (key, KEY_SIZE);
