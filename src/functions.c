@@ -27,6 +27,7 @@ int receive_from_connection (int fd, void * structure, size_t struct_size)
 		exit(0);
 	}
 
+	sleep(1);
 	close(fd);
 	return bytes;
 }
@@ -51,6 +52,7 @@ int send_to_connection (int fd, void * structure, size_t struct_size)
 		exit(0);
 	}
 
+	sleep (1);
 	close(fd);
 	return bytes;
 }
