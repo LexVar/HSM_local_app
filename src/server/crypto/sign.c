@@ -51,12 +51,14 @@ unsigned char *simple_sign(char *keypath, unsigned char *data, unsigned int len,
     if (!(sig = calloc(1, EVP_PKEY_size(pkey)))) {
         perror("calloc");
         fclose(keyfp);
+	EVP_PKEY_free(pkey);
         return NULL;
     }
 
     if (!(ctx = EVP_MD_CTX_create())) {
         fprintf(stderr, "EVP_MD_CTX_create failed!\n");
         free(sig);
+	EVP_PKEY_free(pkey);
         fclose(keyfp);
         return NULL;
     }
@@ -65,6 +67,8 @@ unsigned char *simple_sign(char *keypath, unsigned char *data, unsigned int len,
     EVP_SignUpdate(ctx, data, len);
     EVP_SignFinal(ctx, sig, olen, pkey);
 
+    EVP_PKEY_free(pkey);
+    EVP_MD_CTX_free(ctx);
     fclose(keyfp);
 
     return sig;
@@ -101,6 +105,8 @@ int sign_data(unsigned char * data, int data_size, char * privkey, unsigned char
     }
 
     strncpy((char *)signature, (char *)sig, siglen);
+    free(sig);
+    free(hash);
 
     return 0;
 }
@@ -127,28 +133,39 @@ int simple_verify(char *certpath, unsigned char *sig, unsigned int sigsz, unsign
 
     if (!EVP_VerifyInit(ctx, sha256)) {
         fprintf(stderr, "[-] EVP_VerifyInit failed!\n");
+	EVP_MD_CTX_free(ctx);
+	free(digest);
         return 0;
     }
 
     if (!EVP_VerifyUpdate(ctx, digest, olen)) {
         fprintf(stderr, "[-] EVP_VerifyUpdate failed!\n");
+	EVP_MD_CTX_free(ctx);
+	free(digest);
         return 0;
     }
 
     if (!(certfp = fopen(certpath, "r"))) {
         perror("fopen");
+	EVP_MD_CTX_free(ctx);
+	free(digest);
         return 0;
     }
 
     if (!(cert = PEM_read_X509(certfp, NULL, NULL, NULL))) {
         fprintf(stderr, "[-] Could not read x509 cert\n");
         fclose(certfp);
+	EVP_MD_CTX_free(ctx);
+	free(digest);
         return 0;
     }
 
     if (!(pkey = X509_get_pubkey(cert))) {
         fprintf(stderr, "X509_get_pubkey failed!\n");
         fclose(certfp);
+	X509_free(cert);
+	EVP_MD_CTX_free(ctx);
+	free(digest);
         return 0;
     }
 
@@ -157,7 +174,11 @@ int simple_verify(char *certpath, unsigned char *sig, unsigned int sigsz, unsign
         fprintf(stderr, "EVP_VerifyFinal failed!\n");
     }
 
+    EVP_MD_CTX_free(ctx);
+    X509_free(cert);
+    EVP_PKEY_free(pkey);
     fclose(certfp);
+    free(digest);
 
     return ret;
 }

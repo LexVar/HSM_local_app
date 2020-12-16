@@ -115,8 +115,8 @@ int main (void)
 				}
 				break;
 			case 9: // Save key
-				printf("cipher: \n");
-				print_chars (req.save_key.msg, CIPHER_SIZE+SIGNATURE_SIZE);
+				// printf("cipher: \n");
+				// print_chars (req.save_key.msg, CIPHER_SIZE+SIGNATURE_SIZE);
 				// Decrypt key + signature
 				resp.status = private_decrypt (PRIVATE_KEY, req.save_key.msg, CIPHER_SIZE, key, &msg_size);
 				if (resp.status > 0)
