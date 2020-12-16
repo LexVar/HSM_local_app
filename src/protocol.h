@@ -52,15 +52,15 @@ struct gen_key_request {
 };
 
 struct gen_key_response {
-	size_t msg_size;		// Size of message with encrypted key
-	unsigned char msg[CIPHER_SIZE];	// Generated encrypted and signed symmetric key
+	// size_t msg_size;		// Size of message with encrypted key
+	unsigned char msg[CIPHER_SIZE+SIGNATURE_SIZE];	// Generated encrypted and signed symmetric key
 	char key_id[ID_SIZE];		// Id of generated key
 };
 // ----------------------
 
 // Save Symmetric key request, response structures
 struct save_key_request {
-	unsigned char msg[CIPHER_SIZE];	// Encrypted and signed key
+	unsigned char msg[CIPHER_SIZE+SIGNATURE_SIZE];	// Encrypted and signed key
 	char entity_id[ID_SIZE];	// Id of entity who sent the symmetric key
 	char key_id[ID_SIZE];		// Id of symmetric key to encrypt data
 };
@@ -115,7 +115,6 @@ struct list_keys_response {
 // union structures, only one is used, depending on the operation
 struct request {
 	char op_code;		// Operation Code
-	char status;		// Operation Status
 
 	union {
 		struct auth_request auth;

@@ -183,7 +183,7 @@ int main(void)
 				break;
 			case 8: // Generate new key
 				printf ("[CLIENT] Generated encrypted key (\"new_key.enc\"): \n%s\n", resp.gen_key.msg);
-				write_to_file ("new_key.enc", (char *)resp.gen_key.msg, resp.gen_key.msg_size);
+				write_to_file ("new_key.enc", (char *)resp.gen_key.msg, CIPHER_SIZE+SIGNATURE_SIZE);
 				break;
 			case 9: // Save key
 				if (resp.status == 0)

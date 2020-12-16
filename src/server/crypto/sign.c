@@ -88,16 +88,16 @@ int sign_data(unsigned char * data, int data_size, char * privkey, unsigned char
     unsigned int siglen;
 
     if (!SSL_library_init())
-        return 1;
+        return -1;
 
     if (!(hash = simple_digest(data, data_size, &hashlen))) {
         fprintf(stderr, "Could not generate hash!\n");
-        return 1;
+        return -1;
     }
 
     if (!(sig = simple_sign(privkey, hash, hashlen, &siglen))) {
         fprintf(stderr, "Could not generate signature!\n");
-        return 1;
+        return -1;
     }
 
     strncpy((char *)signature, (char *)sig, siglen);
@@ -167,7 +167,7 @@ int verify_data(unsigned char * data, int data_size, char * certfile, unsigned c
     int res;
 
     if (!SSL_library_init())
-        return 1;
+        return -1;
 
     if ((res = simple_verify(certfile, signature, siglen, data, data_size))) {
         printf("[+] Verification succeeded!\n");

@@ -128,19 +128,3 @@ int private_decrypt (char * keypath, unsigned char * in, size_t inlen, unsigned 
 	EVP_PKEY_free(key);
 	return ret;
 }
-// int main (void)
-// {
-//         unsigned char msg [] = " is a messageHello, this is a messageHello, this is a messageHello, this is a messageHello, this is a message";
-//         unsigned char in[150], out[150];
-//         size_t outlen, inlen;
-//
-//         inlen=strlen(msg);
-//
-//         pub_encrypt ("test.cert", msg, inlen, out, &outlen);
-//         printf ("pub encrypt: %s\n", out);
-//         printf ("size: %d\n", outlen);
-//         private_decrypt ("test.pem", out, outlen, in, &inlen);
-//         printf ("private decrypt: %s\n", in);
-//         printf ("size: %d\n", inlen);
-//         return 0;
-// }
