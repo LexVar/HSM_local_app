@@ -25,7 +25,7 @@ int compare_mac(unsigned char * mac1, unsigned char * mac2, int length);
 void read_key(unsigned char * key, char * key_file, int key_size);
 int encrypt(unsigned char * in, int inlen, unsigned char * out, char * key_file);
 int ctr_encryption(unsigned char * plaintext, int size, unsigned char * iv, unsigned char * ciphertext, unsigned char * key_bytes);
-int decrypt(unsigned char * in, size_t inlen, unsigned char * out, char * key_file);
+int decrypt(unsigned char * in, int inlen, unsigned char * out, char * key_file);
 unsigned char * compute_hmac(unsigned char * key, unsigned char * message, int size);
 void init_ctr_state (ctr_state * state, unsigned char iv[AES_BLOCK_SIZE], unsigned char key_bytes[KEY_SIZE]);
 

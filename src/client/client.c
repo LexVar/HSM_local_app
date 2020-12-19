@@ -170,14 +170,22 @@ int main(void)
 					printf ("[CLIENT] PIN was changed succesfully\n");
 				break;
 			case 3: // Encrypt + authenticate data
-				printf ("[CLIENT] Encrypted data (\"data.enc\"):\n%s\n", resp.data.data);
-				write_to_file ("data.enc", (char *)resp.data.data, resp.data.data_size);
-
+				if (resp.status <= 0)
+					printf ("Error encrypting data\n");
+				else
+				{
+					printf ("[CLIENT] Encrypted data (\"data.enc\"):\n%s\n", resp.data.data);
+					write_to_file ("data.enc", (char *)resp.data.data, resp.data.data_size);
+				}
 				break;
 			case 4: // Decrypt + authenticate data
-				printf ("[CLIENT] Decrypted data (\"data.txt\"):\n%s\n", resp.data.data);
-				write_to_file ("data.txt", (char *)resp.data.data, resp.data.data_size);
-
+				if (resp.status <= 0)
+					printf ("Error decrypting data\n");
+				else
+				{
+					printf ("[CLIENT] Decrypted data (\"data.txt\"):\n%s\n", resp.data.data);
+					write_to_file ("data.txt", (char *)resp.data.data, resp.data.data_size);
+				}
 				break;
 			case 5: // Sign data
 				printf ("[CLIENT] Signature: (\"signature.txt\"):\n%s\n", resp.sign.signature);

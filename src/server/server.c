@@ -47,30 +47,17 @@ int main (void)
 				// set_PIN(req.admin.PIN);
 				break;
 			case 3: // Encrypt + authenticate data
-				// TEMPORARY
-				// write data to file to pass as argument
-				// write_to_file ("msgs/plaintext.txt", req.data.data, req.data.data_size);
+
 				get_key_path(req.data.key_id, keyfile, ".key");
 				// Encrypt and authenticate data
-				// encrypt("msgs/plaintext.txt", "msgs/ciphertext.enc", keyfile);
-				resp.data.data_size = encrypt(req.data.data, req.data.data_size, resp.data.data, keyfile);
-				// Read ciphertext from file
-				// resp.data.data_size = read_from_file ("msgs/ciphertext.enc", resp.data.data);
-				// TODO - Set status according to operation success
-				resp.status = 0;
+				resp.status = resp.data.data_size = encrypt(req.data.data, req.data.data_size, resp.data.data, keyfile);
 				break;
 			case 4: // Decrypt + authenticate data
-				// TEMPORARY
-				// write data to file to pass as argument
-				// write_to_file ("msgs/ciphertext.enc", req.data.data, req.data.data_size);
+
 				get_key_path(req.data.key_id, keyfile, ".key");
+
 				// Decrypt and authenticate data
-				// decrypt("msgs/ciphertext.enc", "msgs/plaintext.txt", keyfile);
-				resp.data.data_size = decrypt(req.data.data, req.data.data_size, resp.data.data, keyfile);
-				// Read plaintext from file
-				// resp.data.data_size = read_from_file ("msgs/plaintext.txt", resp.data.data);
-				// TODO - Set status according to operation success
-				resp.status = 0;
+				resp.status = resp.data.data_size = decrypt(req.data.data, req.data.data_size, resp.data.data, keyfile);
 				break;
 			case 5: // Encrypt(sign) with private key
 				resp.status = sign_data((unsigned char *)req.sign.data, req.sign.data_size, PRIVATE_KEY, (unsigned char *)resp.sign.signature);

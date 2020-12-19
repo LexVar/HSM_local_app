@@ -183,24 +183,32 @@ int encrypt(unsigned char * in, int inlen, unsigned char * out, char * key_file)
 
 	/* compute mac from IV+CIPHER/PLAINTEXT */
 	mac = compute_hmac(mac_key, iv_cipher, AES_BLOCK_SIZE+size);
-	printf("ciphertext:\n");
-	printf("size:%d\n", size);
-	print_chars2 (ciphertext, size);
 
-	/* write MAC+IV+MESSAGE to file */
-	concatenate (out, mac, 0, MAC_SIZE);
-	concatenate (out, iv, MAC_SIZE, AES_BLOCK_SIZE);
-	concatenate (out, ciphertext, MAC_SIZE+AES_BLOCK_SIZE, size);
+	if (mac != NULL && size > 0)
+	{
+		/* write MAC+IV+MESSAGE to file */
+		concatenate (out, mac, 0, MAC_SIZE);
+		concatenate (out, iv, MAC_SIZE, AES_BLOCK_SIZE);
+		concatenate (out, ciphertext, MAC_SIZE+AES_BLOCK_SIZE, size);
 
-	printf ("Output successfully written..\n");
-	return size+AES_BLOCK_SIZE+MAC_SIZE;
+		printf ("Message succesfully encrypted..\n");
+		size = size+AES_BLOCK_SIZE+MAC_SIZE;
+	}
+	else 
+	{
+		printf ("Error computing the MAC..\n");
+		size = 0;
+	}
+
+	return size;
 }
 
-int decrypt(unsigned char * in, size_t inlen, unsigned char * out, char * key_file)
+int decrypt(unsigned char * in, int inlen, unsigned char * out, char * key_file)
 {
 	unsigned char mac[MAC_SIZE];
 	unsigned char * computed_mac;
-	unsigned char ciphertext[DATA_SIZE], plaintext[DATA_SIZE];
+	unsigned char * ciphertext = in+MAC_SIZE+AES_BLOCK_SIZE;
+	unsigned char plaintext[DATA_SIZE];
 	unsigned char iv_cipher[DATA_SIZE];
 	unsigned char iv[AES_BLOCK_SIZE];
 	unsigned char key[2*KEY_SIZE];
@@ -215,13 +223,12 @@ int decrypt(unsigned char * in, size_t inlen, unsigned char * out, char * key_fi
 	concatenate (mac, in, 0, MAC_SIZE);
 
 	// Read the IV
-	concatenate (iv, &in[MAC_SIZE], 0, AES_BLOCK_SIZE);
+	concatenate (iv, in+MAC_SIZE, 0, AES_BLOCK_SIZE);
 
 	total_bytes = inlen - MAC_SIZE - AES_BLOCK_SIZE;
-	printf("total_bytes:%d\n", total_bytes);
-	/* Concatenate iv+ciphertet to compute mac */
+	/* Concatenate iv+ciphertext to compute mac */
 	concatenate (iv_cipher, iv, 0, AES_BLOCK_SIZE);
-	concatenate (iv_cipher, &in[MAC_SIZE+AES_BLOCK_SIZE], AES_BLOCK_SIZE, total_bytes);
+	concatenate (iv_cipher, ciphertext, AES_BLOCK_SIZE, total_bytes);
 
 	/* compute mac from IV+CIPHER */
 	computed_mac = compute_hmac(mac_key, iv_cipher, AES_BLOCK_SIZE+total_bytes);
@@ -229,16 +236,17 @@ int decrypt(unsigned char * in, size_t inlen, unsigned char * out, char * key_fi
 	/* verify if macs are the same */
 	if (compare_mac(mac, computed_mac, MAC_SIZE) == 0)
 	{
+		printf ("MAC successfully verified, proceding to decryption...\n");
+
 		/* perform ctr encryption, return IV+CIPHER/PLAINTEXT */
 		total_bytes = ctr_encryption(ciphertext, total_bytes, iv, plaintext, key);
 
-		printf("plaintext:\n");
-		printf("size:%d\n", total_bytes);
-		print_chars2 (plaintext, total_bytes);
-		printf ("MAC successfully verified, proceding to decryption...\n");
-
+		// Copy plaintext to out string and add null terminate char
 		concatenate(out, plaintext, 0, total_bytes);
-		printf ("Output successfully written..\n");
+		out[total_bytes] = 0;
+
+		if (total_bytes > 0)
+			printf ("Message decrypted..\n");
 	}
 	else
 		printf ("Error verifing the mac!\n");
