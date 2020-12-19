@@ -34,9 +34,9 @@ struct admin_reponse {
 
 // Data encryption/decryption request, response structures
 struct data_request {
+	char key_id[ID_SIZE];		// Id of symmetric key to encrypt data
 	short int data_size;
 	char data[DATA_SIZE];
-	char key_id[ID_SIZE];		// Id of symmetric key to encrypt data
 };
 
 struct data_response {

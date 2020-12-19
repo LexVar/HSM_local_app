@@ -45,12 +45,24 @@ int main(void)
 				printf("Data filename: ");
 				if ((req.data.data_size = get_attribute_from_file(req.data.data)) == 0)
 					continue;
-
+				printf("Key ID to encrypt data: ");
+				if (fgets(req.data.key_id, ID_SIZE, stdin) == NULL)
+				{
+					printf ("[CLIENT] Error getting ID, try again..\n");
+					continue;
+				}
+				printf("ID: %s\n",req.data.key_id);
 				break;
 			case 4: // Decrypt and authenticate data
 				printf("Encrypted filename: ");
 				if ((req.data.data_size = get_attribute_from_file(req.data.data)) == 0)
 					continue;
+				printf("Key ID to encrypt data: ");
+				if (fgets(req.data.key_id, ID_SIZE, stdin) == NULL)
+				{
+					printf ("[CLIENT] Error getting ID, try again..\n");
+					continue;
+				}
 				break;
 			case 5:	// Sign message
 				printf("Data filename: ");
@@ -183,7 +195,7 @@ int main(void)
 				break;
 			case 8: // Generate new key
 				printf ("[CLIENT] Generated encrypted key (\"new_key.enc\"): \n%s\n", resp.gen_key.msg);
-				write_to_file ("new_key.enc", (char *)resp.gen_key.msg, CIPHER_SIZE+SIGNATURE_SIZE);
+				write_to_file ("key.enc", (char *)resp.gen_key.msg, CIPHER_SIZE+SIGNATURE_SIZE);
 				break;
 			case 9: // Save key
 				if (resp.status == 0)

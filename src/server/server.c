@@ -49,22 +49,24 @@ int main (void)
 			case 3: // Encrypt + authenticate data
 				// TEMPORARY
 				// write data to file to pass as argument
-				write_to_file ("messages/plaintext.txt", req.data.data, req.data.data_size);
+				write_to_file ("msgs/plaintext.txt", req.data.data, req.data.data_size);
+				get_key_path(req.data.key_id, keyfile, ".key");
 				// Encrypt and authenticate data
-				encrypt("messages/plaintext.txt", "messages/ciphertext.enc", "keys/aes.key", "keys/mac.key");
+				encrypt("msgs/plaintext.txt", "msgs/ciphertext.enc", keyfile);
 				// Read ciphertext from file
-				resp.data.data_size = read_from_file ("messages/ciphertext.enc", resp.data.data);
+				resp.data.data_size = read_from_file ("msgs/ciphertext.enc", resp.data.data);
 				// TODO - Set status according to operation success
 				resp.status = 0;
 				break;
 			case 4: // Decrypt + authenticate data
 				// TEMPORARY
 				// write data to file to pass as argument
-				write_to_file ("messages/ciphertext.enc", req.data.data, req.data.data_size);
+				write_to_file ("msgs/ciphertext.enc", req.data.data, req.data.data_size);
+				get_key_path(req.data.key_id, keyfile, ".key");
 				// Decrypt and authenticate data
-				decrypt("messages/ciphertext.enc", "messages/plaintext.txt", "keys/aes.key", "keys/mac.key");
+				decrypt("msgs/ciphertext.enc", "msgs/plaintext.txt", keyfile);
 				// Read plaintext from file
-				resp.data.data_size = read_from_file ("messages/plaintext.txt", resp.data.data);
+				resp.data.data_size = read_from_file ("msgs/plaintext.txt", resp.data.data);
 				// TODO - Set status according to operation success
 				resp.status = 0;
 				break;
@@ -115,15 +117,12 @@ int main (void)
 				}
 				break;
 			case 9: // Save key
-				// printf("cipher: \n");
-				// print_chars (req.save_key.msg, CIPHER_SIZE+SIGNATURE_SIZE);
 				// Decrypt key + signature
 				resp.status = private_decrypt (PRIVATE_KEY, req.save_key.msg, CIPHER_SIZE, key, &msg_size);
 				if (resp.status > 0)
 				{
 					// Verify signature with public key
 					get_key_path(req.save_key.entity_id, keyfile, ".cert");
-					printf("keyfile: %s\n", keyfile);
 					resp.status = verify_data(key, KEY_SIZE, keyfile, &(req.save_key.msg[CIPHER_SIZE]), SIGNATURE_SIZE);
 					// save key in storage
 					get_key_path(req.save_key.key_id, keyfile, ".key");

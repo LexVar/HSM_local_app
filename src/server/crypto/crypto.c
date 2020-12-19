@@ -5,7 +5,7 @@
 void new_key(char * key_file)
 {
 	FILE *fout;
-	unsigned char key[KEY_SIZE];
+	unsigned char key[2*KEY_SIZE];
 
 	if ( !RAND_bytes(key, sizeof(key)) )
 		exit(-1);
@@ -70,14 +70,14 @@ int compare_mac(unsigned char * mac1, unsigned char * mac2, int length)
 }
 
 // Read key from aes.key file
-void read_key(unsigned char * key, char * key_file)
+void read_key(unsigned char * key, char * key_file, int key_size)
 {
 	FILE *fin;
 
 	fin = fopen(key_file, "r");
 	if (fin != NULL)
 	{
-		fread(key, KEY_SIZE, 1, fin);
+		fread(key, key_size, 1, fin);
 		fclose(fin);
 	}
 	else
@@ -148,21 +148,22 @@ int ctr_encryption(unsigned char * plaintext, int size, unsigned char * iv, unsi
 	return total_bytes;
 }
 
-void encrypt(char * input_file, char * output_file, char * key_file, char * mac_file)
+void encrypt(char * input_file, char * output_file, char * key_file)
 {
 	unsigned char * mac;
 	unsigned char ciphertext[DATA_SIZE], plaintext[DATA_SIZE];
 	unsigned char iv_cipher[DATA_SIZE];
 	unsigned char buffer[AES_BLOCK_SIZE];
 	unsigned char iv[AES_BLOCK_SIZE];
-	unsigned char key[KEY_SIZE], mac_key[KEY_SIZE];
+	unsigned char key[2*KEY_SIZE];
+	unsigned char * mac_key;
 
 	int size, bytes_read = AES_BLOCK_SIZE, total_bytes = 0;
 	FILE * fout, * fin;
 
 	// read key from file
-	read_key(mac_key, mac_file);
-	read_key(key, key_file);
+	read_key(key, key_file, 2*KEY_SIZE);
+	mac_key = &key[KEY_SIZE];
 
 	// Generate random IV
 	if ( !RAND_bytes(iv, sizeof(iv)) )
@@ -209,7 +210,7 @@ void encrypt(char * input_file, char * output_file, char * key_file, char * mac_
 		printf ("Error opening output file..\n");
 }
 
-void decrypt(char * input_file, char * output_file, char * key_file, char * mac_file)
+void decrypt(char * input_file, char * output_file, char * key_file)
 {
 	unsigned char mac[SIGNATURE_SIZE];
 	unsigned char * computed_mac;
@@ -219,11 +220,12 @@ void decrypt(char * input_file, char * output_file, char * key_file, char * mac_
 	int bytes_read, total_bytes = 0;
 	FILE *fout, *fin;
 	unsigned char iv[AES_BLOCK_SIZE];
-	unsigned char key[KEY_SIZE], mac_key[KEY_SIZE];
+	unsigned char key[2*KEY_SIZE];
+	unsigned char * mac_key;
 
 	// read key from file
-	read_key(key, key_file);
-	read_key(mac_key, mac_file);
+	read_key(key, key_file, 2*KEY_SIZE);
+	mac_key = &key[KEY_SIZE];
 
 	fin = fopen (input_file, "rb");
 
