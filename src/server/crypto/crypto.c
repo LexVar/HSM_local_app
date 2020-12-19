@@ -200,7 +200,7 @@ void encrypt(char * input_file, char * output_file, char * key_file)
 	/* write MAC+IV+MESSAGE to file */
 	if (fout != NULL)
 	{
-		fwrite (mac, sizeof(char), SIGNATURE_SIZE, fout);
+		fwrite (mac, sizeof(char), MAC_SIZE, fout);
 		fwrite (iv, sizeof(char), AES_BLOCK_SIZE, fout);
 		fwrite (ciphertext, sizeof(char), size, fout);
 		fclose(fout);
@@ -212,7 +212,7 @@ void encrypt(char * input_file, char * output_file, char * key_file)
 
 void decrypt(char * input_file, char * output_file, char * key_file)
 {
-	unsigned char mac[SIGNATURE_SIZE];
+	unsigned char mac[MAC_SIZE];
 	unsigned char * computed_mac;
 	unsigned char ciphertext[DATA_SIZE], plaintext[DATA_SIZE];
 	unsigned char iv_cipher[DATA_SIZE];
@@ -231,7 +231,7 @@ void decrypt(char * input_file, char * output_file, char * key_file)
 
 	if (fin != NULL)
 	{
-		fread(mac, SIGNATURE_SIZE, 1, fin);
+		fread(mac, MAC_SIZE, 1, fin);
 
 		// Read the IV first
 		bytes_read = fread(iv, 1, AES_BLOCK_SIZE, fin);
@@ -255,7 +255,7 @@ void decrypt(char * input_file, char * output_file, char * key_file)
 	computed_mac = compute_hmac(mac_key, iv_cipher, AES_BLOCK_SIZE+total_bytes);
 
 	/* verify if macs are the same */
-	if (compare_mac(mac, computed_mac, SIGNATURE_SIZE) == 0)
+	if (compare_mac(mac, computed_mac, MAC_SIZE) == 0)
 	{
 		printf ("MAC successfully verified, proceding to decryption...\n");
 
@@ -283,7 +283,7 @@ unsigned char * compute_hmac(unsigned char * key, unsigned char * message, int s
 {
 	unsigned char * md;
 
-	/* don't change the hash function without changing SIGNATURE_SIZE */
+	/* don't change the hash function without changing MAC_SIZE */
 	md = HMAC(EVP_sha256(), key, KEY_SIZE, message, size, NULL, NULL);
 
 	if (md == NULL)
