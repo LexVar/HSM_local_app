@@ -1,6 +1,14 @@
 #include "crypto.h"
 #include "aes/aes_ctr.c"
 
+void print_chars2 (unsigned char * data, int data_size)
+{
+	int i;
+	for (i = 0; i < data_size; i++)
+		printf("%c", data[i]);
+	printf("\n");
+}
+
 // Generates new AES key, saves to aes.key file
 void new_key(char * key_file)
 {
@@ -148,18 +156,15 @@ int ctr_encryption(unsigned char * plaintext, int size, unsigned char * iv, unsi
 	return total_bytes;
 }
 
-void encrypt(char * input_file, char * output_file, char * key_file)
+int encrypt(unsigned char * in, int inlen, unsigned char * out, char * key_file)
 {
 	unsigned char * mac;
-	unsigned char ciphertext[DATA_SIZE], plaintext[DATA_SIZE];
+	unsigned char * mac_key;
+	unsigned char ciphertext[DATA_SIZE];
 	unsigned char iv_cipher[DATA_SIZE];
-	unsigned char buffer[AES_BLOCK_SIZE];
 	unsigned char iv[AES_BLOCK_SIZE];
 	unsigned char key[2*KEY_SIZE];
-	unsigned char * mac_key;
-
-	int size, bytes_read = AES_BLOCK_SIZE, total_bytes = 0;
-	FILE * fout, * fin;
+	int size;
 
 	// read key from file
 	read_key(key, key_file, 2*KEY_SIZE);
@@ -169,24 +174,8 @@ void encrypt(char * input_file, char * output_file, char * key_file)
 	if ( !RAND_bytes(iv, sizeof(iv)) )
 		exit(-1);
 
-	/* Read plaintext from file using buffer */
-	fin = fopen (input_file, "rb");
-
-	if (fin != NULL)
-	{
-		while (bytes_read >= AES_BLOCK_SIZE)
-		{
-			bytes_read = fread(buffer, 1, AES_BLOCK_SIZE, fin);
-			concatenate (plaintext, buffer, total_bytes, bytes_read);
-			total_bytes += bytes_read;
-		}
-		fclose(fin);
-	}
-	else
-		printf("Error opening input file...\n");
-
 	/* perform ctr encryption, return cipher/plaintext */
-	size = ctr_encryption(plaintext, total_bytes, iv, ciphertext, key);
+	size = ctr_encryption(in, inlen, iv, ciphertext, key);
 
 	/* Concatenate iv+ciphertet to compute mac */
 	concatenate (iv_cipher, iv, 0, AES_BLOCK_SIZE);
@@ -195,59 +184,49 @@ void encrypt(char * input_file, char * output_file, char * key_file)
 	/* compute mac from IV+CIPHER/PLAINTEXT */
 	mac = compute_hmac(mac_key, iv_cipher, AES_BLOCK_SIZE+size);
 
-	fout = fopen (output_file, "wb");
-
-	/* write MAC+IV+MESSAGE to file */
-	if (fout != NULL)
+	if (mac != NULL && size > 0)
 	{
-		fwrite (mac, sizeof(char), MAC_SIZE, fout);
-		fwrite (iv, sizeof(char), AES_BLOCK_SIZE, fout);
-		fwrite (ciphertext, sizeof(char), size, fout);
-		fclose(fout);
-		printf ("Output successfully written..\n");
+		/* write MAC+IV+MESSAGE to file */
+		concatenate (out, mac, 0, MAC_SIZE);
+		concatenate (out, iv, MAC_SIZE, AES_BLOCK_SIZE);
+		concatenate (out, ciphertext, MAC_SIZE+AES_BLOCK_SIZE, size);
+
+		printf ("Message succesfully encrypted..\n");
+		size = size+AES_BLOCK_SIZE+MAC_SIZE;
 	}
-	else
-		printf ("Error opening output file..\n");
+	else 
+	{
+		printf ("Error computing the MAC..\n");
+		size = 0;
+	}
+
+	return size;
 }
 
-void decrypt(char * input_file, char * output_file, char * key_file)
+int decrypt(unsigned char * in, int inlen, unsigned char * out, char * key_file)
 {
 	unsigned char mac[MAC_SIZE];
 	unsigned char * computed_mac;
-	unsigned char ciphertext[DATA_SIZE], plaintext[DATA_SIZE];
+	unsigned char * ciphertext = in+MAC_SIZE+AES_BLOCK_SIZE;
+	unsigned char plaintext[DATA_SIZE];
 	unsigned char iv_cipher[DATA_SIZE];
-	unsigned char buffer[AES_BLOCK_SIZE];
-	int bytes_read, total_bytes = 0;
-	FILE *fout, *fin;
 	unsigned char iv[AES_BLOCK_SIZE];
 	unsigned char key[2*KEY_SIZE];
 	unsigned char * mac_key;
+	int total_bytes = 0;
 
 	// read key from file
 	read_key(key, key_file, 2*KEY_SIZE);
 	mac_key = &key[KEY_SIZE];
 
-	fin = fopen (input_file, "rb");
+	// Read the MAC
+	concatenate (mac, in, 0, MAC_SIZE);
 
-	if (fin != NULL)
-	{
-		fread(mac, MAC_SIZE, 1, fin);
+	// Read the IV
+	concatenate (iv, in+MAC_SIZE, 0, AES_BLOCK_SIZE);
 
-		// Read the IV first
-		bytes_read = fread(iv, 1, AES_BLOCK_SIZE, fin);
-
-		while (bytes_read >= AES_BLOCK_SIZE)
-		{
-			bytes_read = fread(buffer, 1, AES_BLOCK_SIZE, fin);
-			concatenate (ciphertext, buffer, total_bytes, bytes_read);
-			total_bytes += bytes_read;
-		}
-		fclose(fin);
-	}
-	else
-		printf("Error opening input file...\n");
-
-	/* Concatenate iv+ciphertet to compute mac */
+	total_bytes = inlen - MAC_SIZE - AES_BLOCK_SIZE;
+	/* Concatenate iv+ciphertext to compute mac */
 	concatenate (iv_cipher, iv, 0, AES_BLOCK_SIZE);
 	concatenate (iv_cipher, ciphertext, AES_BLOCK_SIZE, total_bytes);
 
@@ -262,21 +241,17 @@ void decrypt(char * input_file, char * output_file, char * key_file)
 		/* perform ctr encryption, return IV+CIPHER/PLAINTEXT */
 		total_bytes = ctr_encryption(ciphertext, total_bytes, iv, plaintext, key);
 
-		fout = fopen (output_file, "wb");
+		// Copy plaintext to out string and add null terminate char
+		concatenate(out, plaintext, 0, total_bytes);
+		out[total_bytes] = 0;
 
-		/* write Plaintext message to file */
-		if (fout != NULL)
-		{
-			fwrite (plaintext, 1, total_bytes, fout);
-			fclose(fout);
-			printf ("Output successfully written..\n");
-		}
-		else
-			printf ("Error opening output file..\n");
-
+		if (total_bytes > 0)
+			printf ("Message decrypted..\n");
 	}
 	else
 		printf ("Error verifing the mac!\n");
+
+	return total_bytes;
 }
 
 unsigned char * compute_hmac(unsigned char * key, unsigned char * message, int size)
