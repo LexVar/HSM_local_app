@@ -43,7 +43,7 @@ int main(void)
 				break;
 			case 3: // Encrypt and authenticate data
 				printf("Data filename: ");
-				if ((req.data.data_size = get_attribute_from_file(req.data.data)) == 0)
+				if ((req.data.data_size = get_attribute_from_file((char *)req.data.data)) == 0)
 					continue;
 				printf("Key ID to encrypt data: ");
 				if (fgets(req.data.key_id, ID_SIZE, stdin) == NULL)
@@ -55,7 +55,7 @@ int main(void)
 				break;
 			case 4: // Decrypt and authenticate data
 				printf("Encrypted filename: ");
-				if ((req.data.data_size = get_attribute_from_file(req.data.data)) == 0)
+				if ((req.data.data_size = get_attribute_from_file((char *)req.data.data)) == 0)
 					continue;
 				printf("Key ID to encrypt data: ");
 				if (fgets(req.data.key_id, ID_SIZE, stdin) == NULL)
@@ -171,12 +171,12 @@ int main(void)
 				break;
 			case 3: // Encrypt + authenticate data
 				printf ("[CLIENT] Encrypted data (\"data.enc\"):\n%s\n", resp.data.data);
-				write_to_file ("data.enc", resp.data.data, resp.data.data_size);
+				write_to_file ("data.enc", (char *)resp.data.data, resp.data.data_size);
 
 				break;
 			case 4: // Decrypt + authenticate data
 				printf ("[CLIENT] Decrypted data (\"data.txt\"):\n%s\n", resp.data.data);
-				write_to_file ("data.txt", resp.data.data, resp.data.data_size);
+				write_to_file ("data.txt", (char *)resp.data.data, resp.data.data_size);
 
 				break;
 			case 5: // Sign data

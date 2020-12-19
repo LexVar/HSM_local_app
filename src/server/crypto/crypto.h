@@ -23,9 +23,9 @@ int simpleSHA256(void * input, unsigned long length, unsigned char * md);
 void concatenate(unsigned char * dest, unsigned char * src, int start, int length);
 int compare_mac(unsigned char * mac1, unsigned char * mac2, int length);
 void read_key(unsigned char * key, char * key_file, int key_size);
-void encrypt(char * input_file, char * output_file, char * key_file);
+int encrypt(unsigned char * in, int inlen, unsigned char * out, char * key_file);
 int ctr_encryption(unsigned char * plaintext, int size, unsigned char * iv, unsigned char * ciphertext, unsigned char * key_bytes);
-void decrypt(char * input_file, char * output_file, char * key_file);
+int decrypt(unsigned char * in, size_t inlen, unsigned char * out, char * key_file);
 unsigned char * compute_hmac(unsigned char * key, unsigned char * message, int size);
 void init_ctr_state (ctr_state * state, unsigned char iv[AES_BLOCK_SIZE], unsigned char key_bytes[KEY_SIZE]);
 

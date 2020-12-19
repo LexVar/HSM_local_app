@@ -3,6 +3,7 @@
 
 #define DATA_SIZE 65536		// 1 MB message size
 #define HASH_SIZE 32		// 256 bit hash from SHA-256
+#define MAC_SIZE 32		// 256 bit MAC from HMAC-SHA-256
 #define CIPHER_SIZE 128
 #define SIGNATURE_SIZE 128	// RSA 1024 bit test key
 // #define SIGNATURE_SIZE 96	// 768 bit signature from curve P-384
@@ -36,12 +37,12 @@ struct admin_reponse {
 struct data_request {
 	char key_id[ID_SIZE];		// Id of symmetric key to encrypt data
 	short int data_size;
-	char data[DATA_SIZE];
+	unsigned char data[DATA_SIZE];
 };
 
 struct data_response {
 	short int data_size;
-	char data[DATA_SIZE];
+	unsigned char data[DATA_SIZE];
 };
 // ----------------------
 

@@ -49,24 +49,26 @@ int main (void)
 			case 3: // Encrypt + authenticate data
 				// TEMPORARY
 				// write data to file to pass as argument
-				write_to_file ("msgs/plaintext.txt", req.data.data, req.data.data_size);
+				// write_to_file ("msgs/plaintext.txt", req.data.data, req.data.data_size);
 				get_key_path(req.data.key_id, keyfile, ".key");
 				// Encrypt and authenticate data
-				encrypt("msgs/plaintext.txt", "msgs/ciphertext.enc", keyfile);
+				// encrypt("msgs/plaintext.txt", "msgs/ciphertext.enc", keyfile);
+				resp.data.data_size = encrypt(req.data.data, req.data.data_size, resp.data.data, keyfile);
 				// Read ciphertext from file
-				resp.data.data_size = read_from_file ("msgs/ciphertext.enc", resp.data.data);
+				// resp.data.data_size = read_from_file ("msgs/ciphertext.enc", resp.data.data);
 				// TODO - Set status according to operation success
 				resp.status = 0;
 				break;
 			case 4: // Decrypt + authenticate data
 				// TEMPORARY
 				// write data to file to pass as argument
-				write_to_file ("msgs/ciphertext.enc", req.data.data, req.data.data_size);
+				// write_to_file ("msgs/ciphertext.enc", req.data.data, req.data.data_size);
 				get_key_path(req.data.key_id, keyfile, ".key");
 				// Decrypt and authenticate data
-				decrypt("msgs/ciphertext.enc", "msgs/plaintext.txt", keyfile);
+				// decrypt("msgs/ciphertext.enc", "msgs/plaintext.txt", keyfile);
+				resp.data.data_size = decrypt(req.data.data, req.data.data_size, resp.data.data, keyfile);
 				// Read plaintext from file
-				resp.data.data_size = read_from_file ("msgs/plaintext.txt", resp.data.data);
+				// resp.data.data_size = read_from_file ("msgs/plaintext.txt", resp.data.data);
 				// TODO - Set status according to operation success
 				resp.status = 0;
 				break;
@@ -166,14 +168,6 @@ void get_key_path (char * entity, char * key_path, char * extension)
 	strcpy(key_path, "keys/");
 	strncat(key_path, entity, strlen(entity)-1);
 	strcat(key_path, extension);
-}
-
-void print_hex (unsigned char * data, int data_size)
-{
-	int i;
-	for (i = 0; i < data_size; i++)
-		printf("%x", data[i] & 0xff);
-	printf("\n");
 }
 
 void print_chars (unsigned char * data, int data_size)
