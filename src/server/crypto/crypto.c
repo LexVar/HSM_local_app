@@ -1,14 +1,6 @@
 #include "crypto.h"
 #include "aes/aes_ctr.c"
 
-void print_chars2 (unsigned char * data, int data_size)
-{
-	int i;
-	for (i = 0; i < data_size; i++)
-		printf("%c", data[i]);
-	printf("\n");
-}
-
 // Generates new AES key, saves to aes.key file
 void new_key(char * key_file)
 {
@@ -68,11 +60,11 @@ void concatenate(unsigned char * dest, unsigned char * src, int start, int lengt
 }
 
 /* return 0 if equal, 1 if different */
-int compare_mac(unsigned char * mac1, unsigned char * mac2, int length)
+int compare_strings(unsigned char * m1, unsigned char * m2, int length)
 {
 	int i, different = 0;
 	for (i = 0; i < length && !different; i++)
-		if (mac1[i] != mac2[i])
+		if (m1[i] != m2[i])
 			different = 1;
 	return different;
 }
@@ -234,7 +226,7 @@ int decrypt(unsigned char * in, int inlen, unsigned char * out, char * key_file)
 	computed_mac = compute_hmac(mac_key, iv_cipher, AES_BLOCK_SIZE+total_bytes);
 
 	/* verify if macs are the same */
-	if (compare_mac(mac, computed_mac, MAC_SIZE) == 0)
+	if (compare_strings(mac, computed_mac, MAC_SIZE) == 0)
 	{
 		printf ("MAC successfully verified, proceding to decryption...\n");
 

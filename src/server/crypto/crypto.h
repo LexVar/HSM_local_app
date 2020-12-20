@@ -21,7 +21,7 @@ void new_key(char * key_file);
 void init_crypto_state ();
 int simpleSHA256(void * input, unsigned long length, unsigned char * md);
 void concatenate(unsigned char * dest, unsigned char * src, int start, int length);
-int compare_mac(unsigned char * mac1, unsigned char * mac2, int length);
+int compare_strings(unsigned char * m1, unsigned char * m2, int length);
 void read_key(unsigned char * key, char * key_file, int key_size);
 int encrypt(unsigned char * in, int inlen, unsigned char * out, char * key_file);
 int ctr_encryption(unsigned char * plaintext, int size, unsigned char * iv, unsigned char * ciphertext, unsigned char * key_bytes);

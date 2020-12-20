@@ -1,8 +1,10 @@
 #include "server.h"
 
+#define AUTH_PIN "1234"
 int pipe_fd;		// pipe file descriptor
 struct request req;	// request structure
 struct response resp;	// response structure
+int authenticated = 0;  // Flag, 1-authenticated, 0-not authenticated
 
 int main (void)
 {
@@ -28,20 +30,25 @@ int main (void)
 		// Receive request from client
 		receive_from_connection(pipe_fd, &req, sizeof(struct request));
 
-		if (req.op_code < 1 || req.op_code > 10)
+		printf("[SERVER] Received Operation %d....\n", req.op_code);
+
+		if (!authenticated && req.op_code != 1)
 		{
-			printf("n[SERVER] %d. Is not a valid operation\n", req.op_code);
+			resp.status = 0;
+
+			send_to_connection(pipe_fd, &resp, sizeof(struct response));
+			printf("[SERVER] Not authenticated response\n");
 			continue;
 		}
-
-		printf("[SERVER] Received Operation %d....\n", req.op_code);
+		else if (!authenticated && req.op_code == 1)
+			authenticate();
 
 		/* --------------------------------------------------- */
 		/* Perform operation */
 		switch (req.op_code)
 		{
 			case 1: // Authentication
-				// authenticate(req.auth.PIN);
+				
 				break;
 			case 2: // Change PIN
 				// set_PIN(req.admin.PIN);
@@ -93,13 +100,13 @@ int main (void)
 				// Read key from file
 				msg_size = read_from_file (keyfile, (char *)key);
 				// Sign key
-				resp.status = sign_data(key, KEY_SIZE, PRIVATE_KEY, signature);
+				resp.status = sign_data(key, 2*KEY_SIZE, PRIVATE_KEY, signature);
 				if (resp.status >= 0)
 				{
 					// Entities certificate path
 					get_key_path(req.gen_key.entity_id, keyfile, ".cert");
 					// Encrypt with recipient's public key
-					resp.status = pub_encrypt (keyfile, key, KEY_SIZE, resp.gen_key.msg, &msg_size);
+					resp.status = pub_encrypt (keyfile, key, 2*KEY_SIZE, resp.gen_key.msg, &msg_size);
 
 					// Concatenate signature and encrypted key
 					concatenate(resp.gen_key.msg, signature, CIPHER_SIZE, SIGNATURE_SIZE);
@@ -112,14 +119,19 @@ int main (void)
 				{
 					// Verify signature with public key
 					get_key_path(req.save_key.entity_id, keyfile, ".cert");
-					resp.status = verify_data(key, KEY_SIZE, keyfile, &(req.save_key.msg[CIPHER_SIZE]), SIGNATURE_SIZE);
+					resp.status = verify_data(key, 2*KEY_SIZE, keyfile, &(req.save_key.msg[CIPHER_SIZE]), SIGNATURE_SIZE);
 					// save key in storage
 					get_key_path(req.save_key.key_id, keyfile, ".key");
-					write_to_file (keyfile, (char *)key, KEY_SIZE);
+					write_to_file (keyfile, (char *)key, 2*KEY_SIZE);
 				}
 				break;
 			case 10: // List avaiable secure comm keys
 				get_list_comm_keys (resp.list.list);
+				break;
+			case 11:
+				authenticated = 0;
+				printf("[SERVER] User logged out..\n");
+				resp.status = 1;
 				break;
 			case 0:
 				printf("[SERVER] Stopping server..\n");
@@ -139,7 +151,7 @@ int main (void)
 		sleep (1);
 		/* --------------------------------------------------- */
 		/* Send response back to client */
-		send_to_connection(pipe_fd, &resp, sizeof(struct request));
+		send_to_connection(pipe_fd, &resp, sizeof(struct response));
 
 		printf("[SERVER] Sent response to op. %d....\n", resp.op_code);
 	}
@@ -185,6 +197,21 @@ int get_list_comm_keys(char * list)
 		closedir(d);
 	}
 	return 0;
+}
+
+int authenticate()
+{
+	// Only unlocks session if user is authenticated
+	if (!authenticated)
+	{
+		authenticated = resp.status = !compare_strings((unsigned char *)req.auth.pin, (unsigned char *)AUTH_PIN, strlen(AUTH_PIN));
+
+		if (authenticated)
+			printf("[SERVER] Authentication succesfull\n");
+		else
+			printf("[SERVER] Authentication failed\n");
+	}
+	return authenticated;
 }
 
 void cleanup()

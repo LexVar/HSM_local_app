@@ -3,6 +3,7 @@
 int pipe_fd;		// pipe file descriptor
 struct request req;	// request structure
 struct response resp;	// response structure
+int authenticated = 0;  // Flag, 1-authenticated, 0-not authenticated
 
 int main(void)
 {
@@ -10,6 +11,30 @@ int main(void)
 	signal(SIGINT, cleanup);
 
 	while (1) {
+
+		if (!authenticated)
+		{
+			req.op_code = 1;
+			printf("PIN: ");
+			if (fgets(req.auth.pin, PIN_SIZE, stdin) == NULL)
+			{
+				printf ("[CLIENT] Error getting PIN, try again..\n");
+				continue;
+			}
+			send_to_connection(pipe_fd, &req, sizeof(struct request));
+			printf("[CLIENT] Sent Auth request\n");
+
+			receive_from_connection(pipe_fd, &resp, sizeof(struct response));
+			authenticated = resp.status;
+
+			if (authenticated)
+				printf("[CLIENT] Authentication succesfull\n");
+			else
+			{
+				printf("[CLIENT] Authentication failed\n");
+				continue;
+			}
+		}
 
 		printf("\n--CLIENT OPERATIONS--\n");
 		printf(" 1. Authentication\n");
@@ -35,6 +60,7 @@ int main(void)
 		switch (req.op_code)
 		{
 			case 2:	// Change authentication PIN
+				printf("New PIN: ");
 				if (fgets(req.admin.pin, PIN_SIZE, stdin) == NULL)
 				{
 					printf ("[CLIENT] Error getting PIN, try again..\n");
@@ -51,13 +77,12 @@ int main(void)
 					printf ("[CLIENT] Error getting ID, try again..\n");
 					continue;
 				}
-				printf("ID: %s\n",req.data.key_id);
 				break;
 			case 4: // Decrypt and authenticate data
-				printf("Encrypted filename: ");
+				printf("Data filename: ");
 				if ((req.data.data_size = get_attribute_from_file((char *)req.data.data)) == 0)
 					continue;
-				printf("Key ID to encrypt data: ");
+				printf("Key ID to decrypt data: ");
 				if (fgets(req.data.key_id, ID_SIZE, stdin) == NULL)
 				{
 					printf ("[CLIENT] Error getting ID, try again..\n");
@@ -133,6 +158,9 @@ int main(void)
 					continue;
 				break;
 			case 10:
+				break;
+			case 11:
+				printf ("[CLIENT] Sending logout request\n");
 				break;
 			case 0:
 				printf("[CLIENT] Stopping client..\n");
@@ -212,6 +240,10 @@ int main(void)
 			case 10:
 				printf ("List of keys:\n");
 				printf("%s", resp.list.list);
+				break;
+			case 11:
+				if (resp.status)
+					authenticated = 0;
 				break;
 			default:
 				break;

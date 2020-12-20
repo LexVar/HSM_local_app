@@ -19,6 +19,7 @@ int get_list_comm_keys(char * list);
 void print_hex (unsigned char * data, int data_size);
 void print_chars (unsigned char * data, int data_size);
 void get_key_path (char * entity, char * key_path, char * extension);
+int authenticate();
 void cleanup();
 
 #endif 
