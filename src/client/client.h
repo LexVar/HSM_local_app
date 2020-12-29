@@ -9,8 +9,9 @@
 #include "../protocol.h"
 #include "../functions.c"
 
-int get_attribute_from_file (char * attribute);
-int check_authentication ();
+
+uint32_t get_attribute_from_file (uint8_t * attribute);
+uint8_t check_authentication ();
 void cleanup();
 
 #endif 

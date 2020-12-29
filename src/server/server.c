@@ -1,10 +1,10 @@
 #include "server.h"
 
-unsigned char AUTH_PIN[PIN_SIZE];
-int pipe_fd;		// pipe file descriptor
+uint8_t AUTH_PIN[PIN_SIZE];
+uint32_t pipe_fd;		// pipe file descriptor
 struct request req;	// request structure
 struct response resp;	// response structure
-int authenticated = 0;  // Flag, 1-authenticated, 0-not authenticated
+uint8_t authenticated = 0;  // Flag, 1-authenticated, 0-not authenticated
 
 int main (void)
 {
@@ -92,27 +92,27 @@ int main (void)
 
 // .cert -> certificate
 // .key  -> private/symmetric key
-void get_key_path (char * entity, char * key_path, char * extension)
+void get_key_path (uint8_t * entity, uint8_t * key_path, uint8_t * extension)
 {
 	key_path[0] = '\0';
-	strcpy(key_path, "keys/");
-	strncat(key_path, entity, strlen(entity)-1);
-	strcat(key_path, extension);
+	strcpy((char *)key_path, "keys/");
+	strncat((char *)key_path, (char *)entity, strlen((char *)entity)-1);
+	strcat((char *)key_path, (char *)extension);
 }
 
-void print_chars (unsigned char * data, int data_size)
+void print_chars (uint8_t * data, uint32_t data_size)
 {
-	int i;
+	uint32_t i;
 	for (i = 0; i < data_size; i++)
 		printf("%c", data[i]);
 	printf("\n");
 }
 
-int get_list_comm_keys(char * list)
+uint32_t get_list_comm_keys(uint8_t * list)
 {
 	DIR *d;
 	struct dirent *dir;
-	char newline[] = "\n";
+	uint8_t newline[] = "\n";
 	d = opendir("./keys");
 	if (d)
 	{
@@ -121,8 +121,8 @@ int get_list_comm_keys(char * list)
 		{
 			if (strstr(dir->d_name, ".key") != NULL)
 			{
-				strncat (list, dir->d_name, strlen(dir->d_name));
-				strncat (list, newline, strlen(newline));
+				strncat ((char *)list, dir->d_name, strlen(dir->d_name));
+				strncat ((char *)list, (char *)newline, strlen((char *)newline));
 			}
 		}
 		closedir(d);
@@ -142,7 +142,7 @@ void authenticate()
 	{
 		receive_from_connection(pipe_fd, &req, sizeof(struct request));
 
-		authenticated = resp.status = !compare_strings((unsigned char *)req.auth.pin, AUTH_PIN, sizeof(AUTH_PIN));
+		authenticated = resp.status = !compare_strings(req.auth.pin, AUTH_PIN, sizeof(AUTH_PIN));
 
 		if (authenticated)
 			printf("[SERVER] Authentication succesfull\n");
@@ -156,19 +156,19 @@ void authenticate()
 
 void encrypt_authenticate()
 {
-	char keyfile[ID_SIZE];
+	uint8_t keyfile[ID_SIZE];
 
 	// Encrypt + authenticate data
-	get_key_path(req.data.key_id, keyfile, ".key");
+	get_key_path(req.data.key_id, keyfile, (uint8_t *)".key");
 	// Encrypt and authenticate data
 	resp.status = resp.data.data_size = encrypt(req.data.data, req.data.data_size, resp.data.data, keyfile);
 }
 
 void decrypt_authenticate()
 {
-	char keyfile[ID_SIZE];
+	uint8_t keyfile[ID_SIZE];
 
-	get_key_path(req.data.key_id, keyfile, ".key");
+	get_key_path(req.data.key_id, keyfile, (uint8_t *)".key");
 
 	// Decrypt and authenticate data
 	resp.status = resp.data.data_size = decrypt(req.data.data, req.data.data_size, resp.data.data, keyfile);
@@ -176,7 +176,7 @@ void decrypt_authenticate()
 
 void sign_operation ()
 {
-	resp.status = sign_data((unsigned char *)req.sign.data, req.sign.data_size, PRIVATE_KEY, (unsigned char *)resp.sign.signature);
+	resp.status = sign_data(req.sign.data, req.sign.data_size, (uint8_t *)PRIVATE_KEY, resp.sign.signature);
 	if (resp.status == 0)
 		printf ("[SERVER] Data succesfully signed\n");
 	else
@@ -185,12 +185,12 @@ void sign_operation ()
 
 void verify_operation()
 {
-	char keyfile[ID_SIZE];
+	uint8_t keyfile[ID_SIZE];
 
 	// Get key path from secure storage
-	get_key_path(req.verify.entity_id, keyfile, ".cert");
+	get_key_path(req.verify.entity_id, keyfile, (uint8_t *)".cert");
 
-	resp.status = verify_data((unsigned char *)req.verify.data, req.verify.data_size, keyfile, (unsigned char *)req.verify.signature, SIGNATURE_SIZE);
+	resp.status = verify_data(req.verify.data, req.verify.data_size, keyfile, req.verify.signature, SIGNATURE_SIZE);
 	if (resp.status > 0)
 		printf ("[SERVER] Signature verified successfully\n");
 	else
@@ -199,8 +199,8 @@ void verify_operation()
 
 void import_pubkey_operation()
 {
-	char keyfile[ID_SIZE];
-	get_key_path(req.import_pub.entity_id, keyfile, ".cert");
+	uint8_t keyfile[ID_SIZE];
+	get_key_path(req.import_pub.entity_id, keyfile, (uint8_t *)".cert");
 	if (write_to_file(keyfile, req.import_pub.public_key, PUB_KEY_SIZE) != NULL)
 		resp.status = 0;
 	else
@@ -209,23 +209,23 @@ void import_pubkey_operation()
 
 void share_key_operation()
 {
-	char keyfile[ID_SIZE];
-	unsigned char key[CIPHER_SIZE];
-	unsigned char signature[SIGNATURE_SIZE];
+	uint8_t keyfile[ID_SIZE];
+	uint8_t key[CIPHER_SIZE];
+	uint8_t signature[SIGNATURE_SIZE];
 	size_t msg_size;
 
 	// Generate new symmetric key
-	get_key_path(req.gen_key.key_id, keyfile, ".key");
+	get_key_path(req.gen_key.key_id, keyfile, (uint8_t *)".key");
 	new_key(keyfile);
 
 	// Read key from file
-	msg_size = read_from_file (keyfile, (char *)key);
+	msg_size = read_from_file (keyfile, key);
 	// Sign key
-	resp.status = sign_data(key, 2*KEY_SIZE, PRIVATE_KEY, signature);
+	resp.status = sign_data(key, 2*KEY_SIZE, (uint8_t *)PRIVATE_KEY, signature);
 	if (resp.status >= 0)
 	{
 		// Entities certificate path
-		get_key_path(req.gen_key.entity_id, keyfile, ".cert");
+		get_key_path(req.gen_key.entity_id, keyfile, (uint8_t *)".cert");
 		// Encrypt with recipient's public key
 		resp.status = pub_encrypt (keyfile, key, 2*KEY_SIZE, resp.gen_key.msg, &msg_size);
 
@@ -236,20 +236,20 @@ void share_key_operation()
 
 void save_key_operation()
 {
-	char keyfile[ID_SIZE];
-	unsigned char key[CIPHER_SIZE];
+	uint8_t keyfile[ID_SIZE];
+	uint8_t key[CIPHER_SIZE];
 	size_t msg_size;
 
 	// Decrypt key + signature
-	resp.status = private_decrypt (PRIVATE_KEY, req.save_key.msg, CIPHER_SIZE, key, &msg_size);
+	resp.status = private_decrypt ((uint8_t *)PRIVATE_KEY, req.save_key.msg, CIPHER_SIZE, key, &msg_size);
 	if (resp.status > 0)
 	{
 		// Verify signature with public key
-		get_key_path(req.save_key.entity_id, keyfile, ".cert");
+		get_key_path(req.save_key.entity_id, keyfile, (uint8_t *)".cert");
 		resp.status = verify_data(key, 2*KEY_SIZE, keyfile, &(req.save_key.msg[CIPHER_SIZE]), SIGNATURE_SIZE);
 		// save key in storage
-		get_key_path(req.save_key.key_id, keyfile, ".key");
-		write_to_file (keyfile, (char *)key, 2*KEY_SIZE);
+		get_key_path(req.save_key.key_id, keyfile, (uint8_t *)".key");
+		write_to_file (keyfile, key, 2*KEY_SIZE);
 	}
 }
 
@@ -269,7 +269,7 @@ void init()
 
 void display_greeting ()
 {
-	char greeting [] ="\n--CLIENT OPERATIONS--\n\
+	uint8_t greeting [] ="\n--CLIENT OPERATIONS--\n\
 1. Authentication\n\
 2. Change PIN\n\
 3. Encrypt message\n\

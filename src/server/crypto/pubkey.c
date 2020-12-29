@@ -3,15 +3,15 @@
 /* NB: assumes eng, key, in, inlen are already set up,
  * and that key is an RSA public key
  */
-int pub_encrypt (char * certpath, unsigned char * in, size_t inlen, unsigned char * out, size_t * outlen)
+uint32_t pub_encrypt (uint8_t * certpath, uint8_t * in, size_t inlen, uint8_t * out, size_t * outlen)
 {
 	EVP_PKEY_CTX *ctx;
 	FILE *certfp;
 	X509 *cert;
 	EVP_PKEY *key;
-	int ret;
+	uint32_t ret;
 
-	if (!(certfp = fopen(certpath, "r"))) {
+	if (!(certfp = fopen((char *)certpath, "r"))) {
 		perror("fopen");
 		return -1;
 	}
@@ -73,14 +73,14 @@ int pub_encrypt (char * certpath, unsigned char * in, size_t inlen, unsigned cha
 /* NB: assumes key in, inlen are already set up
 * and that key is an RSA private key
 */
-int private_decrypt (char * keypath, unsigned char * in, size_t inlen, unsigned char * out, size_t * outlen)
+uint32_t private_decrypt (uint8_t * keypath, uint8_t * in, size_t inlen, uint8_t * out, size_t * outlen)
 {
 	EVP_PKEY_CTX *ctx;
 	EVP_PKEY *key;
-	int ret;
+	uint32_t ret;
 	FILE *keyfp;
 
-	if (!(keyfp = fopen(keypath, "r"))) {
+	if (!(keyfp = fopen((char *)keypath, "r"))) {
 		perror("fopen");
 		return -1;
 	}

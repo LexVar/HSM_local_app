@@ -3,17 +3,17 @@
 // Source: (FOR TESTING ONLY)
 // https://gist.github.com/lattera/5246337
 
-unsigned char *simple_digest(unsigned char *buf, unsigned int len, unsigned int *olen)
+uint8_t *simple_digest(uint8_t *buf, uint32_t len, uint32_t *olen)
 {
     EVP_MD_CTX *ctx;
 
     ctx = EVP_MD_CTX_new();
-    unsigned char *ret;
+    uint8_t *ret;
     const EVP_MD *sha256;
 
     sha256 = EVP_sha256();
 
-    if (!(ret = (unsigned char *)malloc(EVP_MAX_MD_SIZE)))
+    if (!(ret = (uint8_t *)malloc(EVP_MAX_MD_SIZE)))
     {
         EVP_MD_CTX_free(ctx);
         return NULL;
@@ -27,15 +27,15 @@ unsigned char *simple_digest(unsigned char *buf, unsigned int len, unsigned int 
     return ret;
 }
 
-unsigned char *simple_sign(char *keypath, unsigned char *data, unsigned int len, unsigned int *olen)
+uint8_t *simple_sign(uint8_t *keypath, uint8_t *data, uint32_t len, uint32_t *olen)
 {
     EVP_MD_CTX *ctx;
     EVP_PKEY *pkey;
     const EVP_MD *sha256;
-    unsigned char *sig;
+    uint8_t *sig;
     FILE *keyfp;
 
-    if (!(keyfp = fopen(keypath, "r"))) {
+    if (!(keyfp = fopen((char *)keypath, "r"))) {
         perror("fopen");
         return NULL;
     }
@@ -85,11 +85,11 @@ void *map_file(FILE *fp, size_t len)
     return buf;
 }
 
-int sign_data(unsigned char * data, int data_size, char * privkey, unsigned char * signature)
+uint32_t sign_data(uint8_t * data, uint32_t data_size, uint8_t * privkey, uint8_t * signature)
 {
-    unsigned char *hash, *sig;
-    unsigned int hashlen;
-    unsigned int siglen;
+    uint8_t *hash, *sig;
+    uint32_t hashlen;
+    uint32_t siglen;
 
     if (!SSL_library_init())
         return -1;
@@ -111,16 +111,16 @@ int sign_data(unsigned char * data, int data_size, char * privkey, unsigned char
     return 0;
 }
 
-int simple_verify(char *certpath, unsigned char *sig, unsigned int sigsz, unsigned char *buf, unsigned int len)
+uint32_t simple_verify(uint8_t *certpath, uint8_t *sig, uint32_t sigsz, uint8_t *buf, uint32_t len)
 {
     FILE *certfp;
     X509 *cert;
     EVP_PKEY *pkey;
     EVP_MD_CTX *ctx;
     const EVP_MD *sha256;
-    int ret;
-    unsigned int olen;
-    unsigned char *digest;
+    uint32_t ret;
+    uint32_t olen;
+    uint8_t *digest;
 
     digest = simple_digest(buf, len, &olen);
 
@@ -145,7 +145,7 @@ int simple_verify(char *certpath, unsigned char *sig, unsigned int sigsz, unsign
         return 0;
     }
 
-    if (!(certfp = fopen(certpath, "r"))) {
+    if (!(certfp = fopen((char *)certpath, "r"))) {
         perror("fopen");
 	EVP_MD_CTX_free(ctx);
 	free(digest);
@@ -183,9 +183,9 @@ int simple_verify(char *certpath, unsigned char *sig, unsigned int sigsz, unsign
     return ret;
 }
 
-int verify_data(unsigned char * data, int data_size, char * certfile, unsigned char * signature, int siglen)
+uint32_t verify_data(uint8_t * data, uint32_t data_size, uint8_t * certfile, uint8_t * signature, uint32_t siglen)
 {
-    int res;
+    uint32_t res;
 
     if (!SSL_library_init())
         return -1;

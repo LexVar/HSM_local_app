@@ -2,18 +2,18 @@
 #include "aes/aes_ctr.c"
 
 // Generates new AES key, saves to aes.key file
-void new_key(char * key_file)
+void new_key(uint8_t * key_file)
 {
 	FILE *fout;
-	unsigned char key[2*KEY_SIZE];
+	uint8_t key[2*KEY_SIZE];
 
 	if ( !RAND_bytes(key, sizeof(key)) )
 		exit(-1);
 
-	fout = fopen(key_file, "w");
+	fout = fopen((char *)key_file, "w");
 	if (fout != NULL)
 	{
-		fwrite(key, sizeof(char), sizeof(key), fout);
+		fwrite(key, sizeof(uint8_t), sizeof(key), fout);
 		fclose(fout);
 	}
 	else
@@ -28,17 +28,17 @@ void init_crypto_state ()
 	ERR_load_crypto_strings();
 }
 
-void concatenate(unsigned char * dest, unsigned char * src, int start, int length)
+void concatenate(uint8_t * dest, uint8_t * src, uint32_t start, uint32_t length)
 {
-	int i;
+	uint32_t i;
 	for (i = 0; i < length; i++)
 		dest[i+start] = src[i];
 }
 
 /* return 0 if equal, 1 if different */
-int compare_strings(unsigned char * m1, unsigned char * m2, int length)
+uint32_t compare_strings(uint8_t * m1, uint8_t * m2, uint32_t length)
 {
-	int i, different = 0;
+	uint32_t i, different = 0;
 	for (i = 0; i < length && !different; i++)
 		if (m1[i] != m2[i])
 			different = 1;
@@ -46,11 +46,11 @@ int compare_strings(unsigned char * m1, unsigned char * m2, int length)
 }
 
 // Read key from aes.key file
-void read_key(unsigned char * key, char * key_file, int key_size)
+void read_key(uint8_t * key, uint8_t * key_file, uint32_t key_size)
 {
 	FILE *fin;
 
-	fin = fopen(key_file, "r");
+	fin = fopen((char *)key_file, "r");
 	if (fin != NULL)
 	{
 		fread(key, key_size, 1, fin);
@@ -60,7 +60,7 @@ void read_key(unsigned char * key, char * key_file, int key_size)
 		printf("Error reading key.\n");
 }
 
-void init_ctr_state (ctr_state * state, unsigned char iv[AES_BLOCK_SIZE], unsigned char key_bytes[KEY_SIZE])
+void init_ctr_state (ctr_state * state, uint8_t iv[AES_BLOCK_SIZE], uint8_t key_bytes[KEY_SIZE])
 {
 	/* save key bytes */
 	memcpy(state->key_bytes, key_bytes, KEY_SIZE);
@@ -76,16 +76,16 @@ void init_ctr_state (ctr_state * state, unsigned char iv[AES_BLOCK_SIZE], unsign
 	memcpy(state->iv, iv, 8);
 }
 
-int ctr_encryption(unsigned char * plaintext, int size, unsigned char * iv, unsigned char * ciphertext, unsigned char * key_bytes)
+uint32_t ctr_encryption(uint8_t * plaintext, uint32_t size, uint8_t * iv, uint8_t * ciphertext, uint8_t * key_bytes)
 {
 	AES_KEY key;
-	int bytes_read = AES_BLOCK_SIZE;
+	uint32_t bytes_read = AES_BLOCK_SIZE;
 	// is at least the size of the iv
-	int total_bytes = 0;
+	uint32_t total_bytes = 0;
 	
 	/* Buffers for Encryption */
-	unsigned char enc_in[DATA_SIZE];
-	unsigned char enc_out[DATA_SIZE];
+	uint8_t enc_in[DATA_SIZE];
+	uint8_t enc_out[DATA_SIZE];
 
 	ctr_state state;
 
@@ -113,7 +113,7 @@ int ctr_encryption(unsigned char * plaintext, int size, unsigned char * iv, unsi
 		/* enc_out[bytes_read] = 0; */
 
 		/* Add block to the result string */
-		/* strncat((char *) ciphertext, (char *) enc_out, bytes_read); */
+		/* strncat((uint8_t *) ciphertext, (uint8_t *) enc_out, bytes_read); */
 		concatenate (ciphertext, enc_out, total_bytes, bytes_read);
 
 		/* number of bytes written to ciphertext */
@@ -124,15 +124,15 @@ int ctr_encryption(unsigned char * plaintext, int size, unsigned char * iv, unsi
 	return total_bytes;
 }
 
-int encrypt(unsigned char * in, int inlen, unsigned char * out, char * key_file)
+uint32_t encrypt(uint8_t * in, uint32_t inlen, uint8_t * out, uint8_t * key_file)
 {
-	unsigned char * mac;
-	unsigned char * mac_key;
-	unsigned char ciphertext[DATA_SIZE];
-	unsigned char iv_cipher[DATA_SIZE];
-	unsigned char iv[AES_BLOCK_SIZE];
-	unsigned char key[2*KEY_SIZE];
-	int size;
+	uint8_t * mac;
+	uint8_t * mac_key;
+	uint8_t ciphertext[DATA_SIZE];
+	uint8_t iv_cipher[DATA_SIZE];
+	uint8_t iv[AES_BLOCK_SIZE];
+	uint8_t key[2*KEY_SIZE];
+	uint32_t size;
 
 	// read keys from file
 	read_key(key, key_file, 2*KEY_SIZE);
@@ -173,17 +173,17 @@ int encrypt(unsigned char * in, int inlen, unsigned char * out, char * key_file)
 	return size;
 }
 
-int decrypt(unsigned char * in, int inlen, unsigned char * out, char * key_file)
+uint32_t decrypt(uint8_t * in, uint32_t inlen, uint8_t * out, uint8_t * key_file)
 {
-	unsigned char mac[MAC_SIZE];
-	unsigned char * computed_mac;
-	unsigned char * ciphertext = in+MAC_SIZE+AES_BLOCK_SIZE;
-	unsigned char plaintext[DATA_SIZE];
-	unsigned char iv_cipher[DATA_SIZE];
-	unsigned char iv[AES_BLOCK_SIZE];
-	unsigned char key[2*KEY_SIZE];
-	unsigned char * mac_key;
-	int total_bytes = 0;
+	uint8_t mac[MAC_SIZE];
+	uint8_t * computed_mac;
+	uint8_t * ciphertext = in+MAC_SIZE+AES_BLOCK_SIZE;
+	uint8_t plaintext[DATA_SIZE];
+	uint8_t iv_cipher[DATA_SIZE];
+	uint8_t iv[AES_BLOCK_SIZE];
+	uint8_t key[2*KEY_SIZE];
+	uint8_t * mac_key;
+	uint32_t total_bytes = 0;
 
 	// read key from file
 	read_key(key, key_file, 2*KEY_SIZE);
@@ -211,7 +211,7 @@ int decrypt(unsigned char * in, int inlen, unsigned char * out, char * key_file)
 		/* perform ctr encryption, return IV+CIPHER/PLAINTEXT */
 		total_bytes = ctr_encryption(ciphertext, total_bytes, iv, plaintext, key);
 
-		// Copy plaintext to out string and add null terminate char
+		// Copy plaintext to out string and add null terminate uint8_t
 		concatenate(out, plaintext, 0, total_bytes);
 		out[total_bytes] = 0;
 
@@ -224,9 +224,9 @@ int decrypt(unsigned char * in, int inlen, unsigned char * out, char * key_file)
 	return total_bytes;
 }
 
-unsigned char * compute_hmac(unsigned char * key, unsigned char * message, int size)
+uint8_t * compute_hmac(uint8_t * key, uint8_t * message, uint32_t size)
 {
-	unsigned char * md;
+	uint8_t * md;
 
 	/* don't change the hash function without changing MAC_SIZE */
 	md = HMAC(EVP_sha256(), key, KEY_SIZE, message, size, NULL, NULL);

@@ -16,10 +16,10 @@
 
 #define PRIVATE_KEY "keys/test.pem"
 
-int get_list_comm_keys(char * list);
-void print_hex (unsigned char * data, int data_size);
-void print_chars (unsigned char * data, int data_size);
-void get_key_path (char * entity, char * key_path, char * extension);
+uint32_t get_list_comm_keys(uint8_t * list);
+void print_hex (uint8_t * data, uint32_t data_size);
+void print_chars (uint8_t * data, uint32_t data_size);
+void get_key_path (uint8_t * entity, uint8_t * key_path, uint8_t * extension);
 void authenticate();
 void encrypt_authenticate();
 void decrypt_authenticate();

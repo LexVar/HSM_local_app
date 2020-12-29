@@ -1,6 +1,8 @@
 #ifndef PROTOCOL_H
 #define PROTOCOL_H
 
+#include <inttypes.h>
+
 #define DATA_SIZE 65536		// 1 MB message size
 #define HASH_SIZE 32		// 256 bit hash from SHA-256
 #define MAC_SIZE 32		// 256 bit MAC from HMAC-SHA-256
@@ -18,7 +20,7 @@
 
 // Authentication request, response structures
 struct auth_request {
-	char pin[PIN_SIZE];
+	uint8_t pin[PIN_SIZE];
 };
 
 struct auth_reponse {
@@ -27,7 +29,7 @@ struct auth_reponse {
 
 // Change authentication PIN request, response structures
 struct admin_request {
-	char pin[PIN_SIZE];
+	uint8_t pin[PIN_SIZE];
 };
 
 struct admin_reponse {
@@ -36,35 +38,35 @@ struct admin_reponse {
 
 // Data encryption/decryption request, response structures
 struct data_request {
-	char key_id[ID_SIZE];		// Id of symmetric key to encrypt data
-	short int data_size;
-	unsigned char data[DATA_SIZE];
+	uint8_t key_id[ID_SIZE];		// Id of symmetric key to encrypt data
+	uint16_t data_size;
+	uint8_t data[DATA_SIZE];
 };
 
 struct data_response {
-	short int data_size;
-	unsigned char data[DATA_SIZE];
+	uint16_t data_size;
+	uint8_t data[DATA_SIZE];
 };
 // ----------------------
 
 // Generate Symmetric key request, response structures
 struct gen_key_request {
-	char entity_id[ID_SIZE];	// Id of entity to share generated symmetric key
-	char key_id[ID_SIZE];		// Id of new symmetric key to generate
+	uint8_t entity_id[ID_SIZE];	// Id of entity to share generated symmetric key
+	uint8_t key_id[ID_SIZE];		// Id of new symmetric key to generate
 };
 
 struct gen_key_response {
 	// size_t msg_size;		// Size of message with encrypted key
-	unsigned char msg[CIPHER_SIZE+SIGNATURE_SIZE];	// Generated encrypted and signed symmetric key
-	char key_id[ID_SIZE];		// Id of generated key
+	uint8_t msg[CIPHER_SIZE+SIGNATURE_SIZE];	// Generated encrypted and signed symmetric key
+	uint8_t key_id[ID_SIZE];		// Id of generated key
 };
 // ----------------------
 
 // Save Symmetric key request, response structures
 struct save_key_request {
-	unsigned char msg[CIPHER_SIZE+SIGNATURE_SIZE];	// Encrypted and signed key
-	char entity_id[ID_SIZE];	// Id of entity who sent the symmetric key
-	char key_id[ID_SIZE];		// Id of symmetric key to encrypt data
+	uint8_t msg[CIPHER_SIZE+SIGNATURE_SIZE];	// Encrypted and signed key
+	uint8_t entity_id[ID_SIZE];	// Id of entity who sent the symmetric key
+	uint8_t key_id[ID_SIZE];		// Id of symmetric key to encrypt data
 };
 
 struct save_key_response {
@@ -73,21 +75,21 @@ struct save_key_response {
 
 // Sign document request, response structures
 struct sign_request {
-	short int data_size;
-	char data[DATA_SIZE];		// Data to be signed
+	uint16_t data_size;
+	uint8_t data[DATA_SIZE];		// Data to be signed
 };
 
 struct sign_response {
-	char signature[SIGNATURE_SIZE];	// Generated signature
+	uint8_t signature[SIGNATURE_SIZE];	// Generated signature
 };
 // ----------------------
 
 // Verify document signature request, response structures
 struct verify_request {
-	char signature[SIGNATURE_SIZE]; // Data signature
-	char entity_id[ID_SIZE];	// ID of entity who signed the data
-	short int data_size;
-	char data[DATA_SIZE];		// Data signed
+	uint8_t signature[SIGNATURE_SIZE]; // Data signature
+	uint8_t entity_id[ID_SIZE];	// ID of entity who signed the data
+	uint16_t data_size;
+	uint8_t data[DATA_SIZE];		// Data signed
 };
 
 struct verify_response {
@@ -96,8 +98,8 @@ struct verify_response {
 
 // Import public key request, response structures
 struct import_pub_request {
-	char entity_id[ID_SIZE];	// ID of entity
-	char public_key[PUB_KEY_SIZE];	// Public key of the entity
+	uint8_t entity_id[ID_SIZE];	// ID of entity
+	uint8_t public_key[PUB_KEY_SIZE];	// Public key of the entity
 };
 
 struct import_pub_response {
@@ -109,14 +111,14 @@ struct list_keys_request {
 };
 
 struct list_keys_response {
-	char list[DATA_SIZE];		// List of keys
+	uint8_t list[DATA_SIZE];		// List of keys
 };
 // ----------------------
 
 // Main request structure with base parameters (op_code, status) and
 // union structures, only one is used, depending on the operation
 struct request {
-	char op_code;		// Operation Code
+	uint8_t op_code;		// Operation Code
 
 	union {
 		struct auth_request auth;
@@ -134,8 +136,8 @@ struct request {
 // Main response structure with base parameters (op_code, status) and
 // union structures, only one is used, depending on the operation
 struct response {
-	char op_code;		// Operation Code
-	char status;		// Operation Status
+	uint8_t op_code;		// Operation Code
+	uint8_t status;		// Operation Status
 
 	union {
 		struct auth_reponse auth;

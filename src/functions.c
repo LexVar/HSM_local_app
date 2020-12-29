@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <fcntl.h>           /* Definition of AT_* constants */
+#include <inttypes.h>
 
 #define PIPE_NAME "/tmp/connection" // Pipe name
 
@@ -9,9 +10,9 @@
 // fd - pipe file descriptor
 // structure - pointer to structure where to save information
 // struct_size - structure size in bytes sizeof(..)
-int receive_from_connection (int fd, void * structure, size_t struct_size)
+uint32_t receive_from_connection (uint32_t fd, void * structure, uint32_t struct_size)
 {
-	int bytes;
+	uint32_t bytes;
 
 	if ((fd = open(PIPE_NAME, O_RDONLY)) < 0) {
 		perror("[SERVER] Cannot open pipe for reading: ");
@@ -33,9 +34,9 @@ int receive_from_connection (int fd, void * structure, size_t struct_size)
 // fd - pipe file descriptor
 // structure - pointer to structure to send through pipe
 // struct_size - structure size in bytes sizeof(..)
-int send_to_connection (int fd, void * structure, size_t struct_size)
+uint32_t send_to_connection (uint32_t fd, void * structure, uint32_t struct_size)
 {
-	int bytes;
+	uint32_t bytes;
 
 	if ((fd = open(PIPE_NAME, O_WRONLY)) < 0) {
 		perror("[SERVER] Cannot open pipe for writing: ");
@@ -54,9 +55,9 @@ int send_to_connection (int fd, void * structure, size_t struct_size)
 	return bytes;
 }
 
-void * write_to_file (char * filename, char * content, int fsize)
+void * write_to_file (uint8_t * filename, uint8_t * content, uint32_t fsize)
 {
-	FILE *f = fopen(filename, "wb");
+	FILE *f = fopen((char *)filename, "wb");
 
 	if (f != NULL)
 	{
@@ -69,10 +70,10 @@ void * write_to_file (char * filename, char * content, int fsize)
 	return f;
 }
 
-int read_from_file (char * filename, char * content)
+uint32_t read_from_file (uint8_t * filename, uint8_t * content)
 {
-	FILE *f = fopen(filename, "rb");
-	int fsize = 0;
+	FILE *f = fopen((char *)filename, "rb");
+	uint32_t fsize = 0;
 
 	if (f != NULL)
 	{
@@ -94,13 +95,13 @@ int read_from_file (char * filename, char * content)
 
 void flush_stdin ()
 {
-	int c;
+	uint8_t c;
 	while ((c = getchar()) != EOF && c != '\n') ;
 }
 
-void print_hexa(unsigned char * string, int length)
+void print_hexa(uint8_t * string, uint32_t length)
 {
-	int i = 0;
+	uint32_t i = 0;
 	for (i = 0; i < length; i++)
 		printf("%x ",string[i] & 0xff);
 
