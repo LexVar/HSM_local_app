@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
+#include <inttypes.h>
 #include "../protocol.h"
 #include "../functions.c"
 

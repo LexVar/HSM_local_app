@@ -7,7 +7,6 @@ struct response resp;	// response structure
 int main(void)
 {
 	char greetings[DATA_SIZE];
-	u_int8_t test;
 	// Redirects SIGINT (CTRL-c) to cleanup()
 	signal(SIGINT, cleanup);
 

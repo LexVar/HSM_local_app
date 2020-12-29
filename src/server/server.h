@@ -11,6 +11,7 @@
 #include "crypto/sign.h"
 #include "crypto/crypto.h"
 #include "crypto/pubkey.c"
+#include <inttypes.h>
 // #include "pkcs11.h"
 
 #define PRIVATE_KEY "keys/test.pem"
