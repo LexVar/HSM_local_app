@@ -22,6 +22,15 @@
 
 #include "pkcs11.h"
 
+#define MAX_SESSIONS 1
+#define MAX_SLOTS 1	// App só suport 1 token
+
+// GLOBAL VARIABLES
+CK_BBOOL init = CK_FALSE;
+// p11_slot g_slots[MAX_SLOTS];
+
+// std::vector<HSM*> devices_list; // the index represents the slotID (so the same device pointer may be in multiple indexes)
+// std::vector<p11_session*> g_sessions;
 
 CK_FUNCTION_LIST pkcs11_functions = 
 {

@@ -19,7 +19,16 @@ int get_list_comm_keys(char * list);
 void print_hex (unsigned char * data, int data_size);
 void print_chars (unsigned char * data, int data_size);
 void get_key_path (char * entity, char * key_path, char * extension);
-int authenticate();
+void authenticate();
+void encrypt_authenticate();
+void decrypt_authenticate();
+void sign_operation();
+void verify_operation();
+void import_pubkey_operation();
+void share_key_operation();
+void save_key_operation();
+void init();
+void display_greeting ();
 void cleanup();
 
 #endif 

@@ -28,30 +28,6 @@ void init_crypto_state ()
 	ERR_load_crypto_strings();
 }
 
-int simpleSHA256(void * input, unsigned long length, unsigned char * md)
-{
-	SHA256_CTX context;
-	if(!SHA256_Init(&context))
-	{
-		fprintf(stderr, "[CRYPTO] SHA256_Init failed\n");
-		return -1;
-	}
-
-	if(!SHA256_Update(&context, (unsigned char*)input, length))
-	{
-		fprintf(stderr, "[CRYPTO] SHA256_Update failed\n");
-		return -1;
-	}
-
-	if(!SHA256_Final(md, &context))
-	{
-		fprintf(stderr, "[CRYPTO] SHA256_Final failed\n");
-		return -1;
-	}
-
-	return 0;
-}
-
 void concatenate(unsigned char * dest, unsigned char * src, int start, int length)
 {
 	int i;
@@ -158,8 +134,9 @@ int encrypt(unsigned char * in, int inlen, unsigned char * out, char * key_file)
 	unsigned char key[2*KEY_SIZE];
 	int size;
 
-	// read key from file
+	// read keys from file
 	read_key(key, key_file, 2*KEY_SIZE);
+	// set mac key
 	mac_key = &key[KEY_SIZE];
 
 	// Generate random IV
@@ -176,6 +153,7 @@ int encrypt(unsigned char * in, int inlen, unsigned char * out, char * key_file)
 	/* compute mac from IV+CIPHER/PLAINTEXT */
 	mac = compute_hmac(mac_key, iv_cipher, AES_BLOCK_SIZE+size);
 
+	// concatenate the 3 components for final result
 	if (mac != NULL && size > 0)
 	{
 		/* write MAC+IV+MESSAGE to file */

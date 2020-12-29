@@ -9,6 +9,7 @@
 #include "../functions.c"
 
 int get_attribute_from_file (char * attribute);
+int check_authentication ();
 void cleanup();
 
 #endif 

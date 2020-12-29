@@ -3,54 +3,33 @@
 int pipe_fd;		// pipe file descriptor
 struct request req;	// request structure
 struct response resp;	// response structure
-int authenticated = 0;  // Flag, 1-authenticated, 0-not authenticated
 
 int main(void)
 {
+	char greetings[DATA_SIZE];
+	u_int8_t test;
 	// Redirects SIGINT (CTRL-c) to cleanup()
 	signal(SIGINT, cleanup);
 
 	while (1) {
 
-		if (!authenticated)
+		printf ("Press ENTER to continue...\n");
+		if (fgets(greetings, DATA_SIZE, stdin) == NULL)
 		{
-			req.op_code = 1;
-			printf("PIN: ");
-			if (fgets(req.auth.pin, PIN_SIZE, stdin) == NULL)
-			{
-				printf ("[CLIENT] Error getting PIN, try again..\n");
-				continue;
-			}
-			send_to_connection(pipe_fd, &req, sizeof(struct request));
-			printf("[CLIENT] Sent Auth request\n");
-
-			receive_from_connection(pipe_fd, &resp, sizeof(struct response));
-			authenticated = resp.status;
-
-			if (authenticated)
-				printf("[CLIENT] Authentication succesfull\n");
-			else
-			{
-				printf("[CLIENT] Authentication failed\n");
-				continue;
-			}
+			printf ("[CLIENT] Error stdin..\n");
+			continue;
+		}
+		if (check_authentication() != 1)
+		{
+			printf("[CLIENT] Authentication failed\n");
+			continue;
 		}
 
-		printf("\n--CLIENT OPERATIONS--\n");
-		printf(" 1. Authentication\n");
-		printf(" 2. Change PIN\n");
-		printf(" 3. Encrypt message\n");
-		printf(" 4. Decrypt message\n");
-		printf(" 5. Sign message\n");
-		printf(" 6. Verify signature\n");
-		printf(" 7. Import public key\n");
-		printf(" 8. Share key\n");
-		printf(" 9. Save key\n");
-		printf(" 10. List comm keys\n");
-		printf(" 0. Quit\n");
-		printf("---------------------\n\n");
+		printf("[CLIENT] Authentication succesfull\n");
 
-		printf("Operation: ");
+		receive_from_connection(pipe_fd, greetings, sizeof(greetings));
+
+		printf ("%s", greetings);
 		scanf("%hhd", &(req.op_code));
 
 		flush_stdin();
@@ -241,10 +220,6 @@ int main(void)
 				printf ("List of keys:\n");
 				printf("%s", resp.list.list);
 				break;
-			case 11:
-				if (resp.status)
-					authenticated = 0;
-				break;
 			default:
 				break;
 		}
@@ -253,6 +228,27 @@ int main(void)
 		sleep(2);
 	}
 	return 0;
+}
+
+int check_authentication ()
+{
+	receive_from_connection(pipe_fd, &resp, sizeof(struct response));
+	if (resp.status != 1)
+	{
+		req.op_code = 1;
+		printf("PIN: ");
+
+		if (fgets(req.auth.pin, PIN_SIZE, stdin) == NULL)
+		{
+			printf ("[CLIENT] Error getting PIN, try again..\n");
+			return 0;
+		}
+		send_to_connection(pipe_fd, &req, sizeof(struct request));
+		printf("[CLIENT] Sent Auth request\n");
+
+		receive_from_connection(pipe_fd, &resp, sizeof(struct response));
+	}
+	return resp.status;
 }
 
 int get_attribute_from_file (char * attribute)

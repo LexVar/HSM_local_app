@@ -1,14 +1,11 @@
 #include <stdio.h>
 #include <unistd.h>
-#include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>           /* Definition of AT_* constants */
-#include <sys/stat.h>
-#include <errno.h>
 
 #define PIPE_NAME "/tmp/connection" // Pipe name
 
-// Reiceve a message from the other process
+// Receive a message from the other process
 // fd - pipe file descriptor
 // structure - pointer to structure where to save information
 // struct_size - structure size in bytes sizeof(..)
