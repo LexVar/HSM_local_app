@@ -25,7 +25,7 @@ uint32_t receive_from_connection (uint32_t fd, void * structure, uint32_t struct
 		exit(0);
 	}
 
-	sleep(1);
+	sleep(0.1);
 	close(fd);
 	return bytes;
 }
@@ -50,7 +50,7 @@ uint32_t send_to_connection (uint32_t fd, void * structure, uint32_t struct_size
 		exit(0);
 	}
 
-	sleep (1);
+	sleep (0.1);
 	close(fd);
 	return bytes;
 }

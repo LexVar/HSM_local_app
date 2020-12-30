@@ -13,18 +13,18 @@ int main(void)
 	while (1) {
 
 		printf ("Press ENTER to continue...\n");
-		if (fgets((char *)greetings, DATA_SIZE, stdin) == NULL)
-		{
-			printf ("[CLIENT] Error stdin..\n");
-			continue;
-		}
-		if (check_authentication() != 1)
-		{
-			printf("[CLIENT] Authentication failed\n");
-			continue;
-		}
+		// if (fgets((char *)greetings, DATA_SIZE, stdin) == NULL)
+		// {
+		//         printf ("[CLIENT] Error stdin..\n");
+		//         continue;
+		// }
+		// if (check_authentication() != 1)
+		// {
+		//         printf("[CLIENT] Authentication failed\n");
+		//         continue;
+		// }
 
-		printf("[CLIENT] Authentication succesfull\n");
+		// printf("[CLIENT] Authentication succesfull\n");
 
 		receive_from_connection(pipe_fd, greetings, sizeof(greetings));
 
@@ -33,6 +33,7 @@ int main(void)
 
 		flush_stdin();
 
+		send_to_connection(pipe_fd, &req.op_code, sizeof(uint8_t));
 		// ------------------------------
 		// set request attributes depending on op. code
 		switch (req.op_code)
@@ -44,98 +45,33 @@ int main(void)
 					printf ("[CLIENT] Error getting PIN, try again..\n");
 					continue;
 				}
+				if (resp.status == 0)
+					printf ("[CLIENT] PIN was changed succesfully\n");
 				break;
 			case 3: // Encrypt and authenticate data
-				printf("Data filename: ");
-				if ((req.data.data_size = get_attribute_from_file(req.data.data)) == 0)
-					continue;
-				printf("Key ID to encrypt data: ");
-				if (fgets((char *)req.data.key_id, ID_SIZE, stdin) == NULL)
-				{
-					printf ("[CLIENT] Error getting ID, try again..\n");
-					continue;
-				}
+				encrypt_authenticate((uint8_t *)"data.enc");
 				break;
 			case 4: // Decrypt and authenticate data
-				printf("Data filename: ");
-				if ((req.data.data_size = get_attribute_from_file(req.data.data)) == 0)
-					continue;
-				printf("Key ID to decrypt data: ");
-				if (fgets((char *)req.data.key_id, ID_SIZE, stdin) == NULL)
-				{
-					printf ("[CLIENT] Error getting ID, try again..\n");
-					continue;
-				}
+				encrypt_authenticate((uint8_t *)"data.txt");
 				break;
 			case 5:	// Sign message
-				printf("Data filename: ");
-				if ((req.sign.data_size = get_attribute_from_file(req.sign.data)) == 0)
-					continue;
-
+				sign_operation();
 				break;
 			case 6:	// Sign message
-				printf("Data filename: ");
-				if ((req.verify.data_size = get_attribute_from_file(req.verify.data)) == 0)
-					continue;
-
-				printf("Signature filename: ");
-				if (get_attribute_from_file(req.verify.signature) == 0)
-					continue;
-
-				printf("Entity's ID: ");
-				if (fgets((char *)req.verify.entity_id, ID_SIZE, stdin) == NULL)
-				{
-					printf ("[CLIENT] Error getting ID, try again..\n");
-					continue;
-				}
+				verify_operation();
 				break;
 			case 7:	// Import public key
-				printf("Public key filename: ");
-				if (get_attribute_from_file(req.import_pub.public_key) == 0)
-					continue;
-
-				printf("Entity's ID: ");
-				if (fgets((char *)req.import_pub.entity_id, ID_SIZE, stdin) == NULL)
-				{
-					printf ("[CLIENT] Error getting ID, try again..\n");
-					continue;
-				}
+				import_pubkey_operation();
 				break;
 			case 8:	// Share key
-				printf("Entity's ID (to share key with): ");
-				if (fgets((char *)req.gen_key.entity_id, ID_SIZE, stdin) == NULL)
-				{
-					printf ("[CLIENT] Error getting ID, try again..\n");
-					continue;
-				}
-
-				printf("New Key's ID: ");
-				if (fgets((char *)req.gen_key.key_id, ID_SIZE, stdin) == NULL)
-				{
-					printf ("[CLIENT] Error getting ID, try again..\n");
-					continue;
-				}
+				share_key_operation();
 				break;
 			case 9:	// Save key
-				printf("Entity's ID (to share key with): ");
-				if (fgets((char *)req.save_key.entity_id, ID_SIZE, stdin) == NULL)
-				{
-					printf ("[CLIENT] Error getting ID, try again..\n");
-					continue;
-				}
-
-				printf("New Key's ID: ");
-				if (fgets((char *)req.save_key.key_id, ID_SIZE, stdin) == NULL)
-				{
-					printf ("[CLIENT] Error getting ID, try again..\n");
-					continue;
-				}
-
-				printf("Message (encrypted key): ");
-				if (get_attribute_from_file(req.save_key.msg) == 0)
-					continue;
+				save_key_operation();
 				break;
 			case 10:
+				printf ("List of keys:\n");
+				printf("%s", resp.list.list);
 				break;
 			case 11:
 				printf ("[CLIENT] Sending logout request\n");
@@ -146,87 +82,144 @@ int main(void)
 				break;
 			default:
 				printf("\n[CLIENT] %d. Is not a valid operation\n", req.op_code);
-				sleep (2);
+				sleep (1);
 				continue;
 		}
 
-		// ----------------------------------------------------
-		// Send the request
-		send_to_connection(pipe_fd, &req, sizeof(struct request));
-
-		printf("[CLIENT] Sent Operation %d....\n", req.op_code);
-
-		// ----------------------------------------------------
-		// Receiving the response
-		receive_from_connection(pipe_fd, &resp, sizeof(struct response));
-
-		printf("[CLIENT] Received response: status %d\n", resp.status);
-
-		// ----------------------------------------------------
-		// Treat the response
-		if (resp.status == -1)
-		{
-			printf ("[CLIENT] !!!! Some error ocurred on the server\n");
-		}
-
-		switch (resp.op_code)
-		{
-			case 2: // Change PIN
-				if (resp.status == 0)
-					printf ("[CLIENT] PIN was changed succesfully\n");
-				break;
-			case 3: // Encrypt + authenticate data
-				if (resp.status <= 0)
-					printf ("Error encrypting data\n");
-				else
-				{
-					printf ("[CLIENT] Encrypted data (\"data.enc\"):\n%s\n", resp.data.data);
-					write_to_file ((uint8_t *)"data.enc", resp.data.data, resp.data.data_size);
-				}
-				break;
-			case 4: // Decrypt + authenticate data
-				if (resp.status <= 0)
-					printf ("Error decrypting data\n");
-				else
-				{
-					printf ("[CLIENT] Decrypted data (\"data.txt\"):\n%s\n", resp.data.data);
-					write_to_file ((uint8_t *)"data.txt", resp.data.data, resp.data.data_size);
-				}
-				break;
-			case 5: // Sign data
-				printf ("[CLIENT] Signature: (\"signature.txt\"):\n%s\n", resp.sign.signature);
-				write_to_file ((uint8_t *)"signature.txt", resp.sign.signature, SIGNATURE_SIZE);
-				break;
-			case 6: // Verify signature
-				if (resp.status != 0)
-					printf ("[CLIENT] Signature successfully verified\n");
-				else
-					printf ("[CLIENT] Signature failed verification\n");
-				break;
-			case 7: // Import public key
-				if (resp.status == 0)
-					printf ("[CLIENT] Public key successfully saved\n");
-				break;
-			case 8: // Generate new key
-				printf ("[CLIENT] Generated encrypted key (\"new_key.enc\"): \n%s\n", resp.gen_key.msg);
-				write_to_file ((uint8_t *)"key.enc", resp.gen_key.msg, CIPHER_SIZE+SIGNATURE_SIZE);
-				break;
-			case 9: // Save key
-				if (resp.status == 0)
-					printf ("[CLIENT] Saved new symmetric key\n");
-				break;
-			case 10:
-				printf ("List of keys:\n");
-				printf("%s", resp.list.list);
-				break;
-			default:
-				break;
-		}
-
 		// Wait before printing the menu again
-		sleep(2);
+		sleep(1);
 	}
 	return 0;
+}
+
+void waitOK()
+{
+	uint8_t msg[ID_SIZE];
+	receive_from_connection(pipe_fd, msg, ID_SIZE);
+
+	if (msg[0] != 'O' && msg[1] != 'K')
+		printf ("%s", msg);
+}
+
+void verify_operation()
+{
+	printf("Data filename: ");
+	if ((req.verify.data_size = get_attribute_from_file(req.verify.data)) == 0)
+		return;
+
+	printf("Signature filename: ");
+	if (get_attribute_from_file(req.verify.signature) == 0)
+		return;
+
+	printf("Entity's ID: ");
+	if (fgets((char *)req.verify.entity_id, ID_SIZE, stdin) == NULL)
+	{
+		printf ("[CLIENT] Error getting ID, try again..\n");
+		return;
+	}
+	if (resp.status != 0)
+		printf ("[CLIENT] Signature successfully verified\n");
+	else
+		printf ("[CLIENT] Signature failed verification\n");
+}
+void import_pubkey_operation()
+{
+	printf("Public key filename: ");
+	if (get_attribute_from_file(req.import_pub.public_key) == 0)
+		return;
+
+	printf("Entity's ID: ");
+	if (fgets((char *)req.import_pub.entity_id, ID_SIZE, stdin) == NULL)
+	{
+		printf ("[CLIENT] Error getting ID, try again..\n");
+		return;
+	}
+	if (resp.status == 0)
+		printf ("[CLIENT] Public key successfully saved\n");
+}
+void share_key_operation()
+{
+	printf("Entity's ID (to share key with): ");
+	if (fgets((char *)req.gen_key.entity_id, ID_SIZE, stdin) == NULL)
+	{
+		printf ("[CLIENT] Error getting ID, try again..\n");
+		return;
+	}
+
+	printf("New Key's ID: ");
+	if (fgets((char *)req.gen_key.key_id, ID_SIZE, stdin) == NULL)
+	{
+		printf ("[CLIENT] Error getting ID, try again..\n");
+		return;
+	}
+	printf ("[CLIENT] Generated encrypted key (\"new_key.enc\"): \n%s\n", resp.gen_key.msg);
+	write_to_file ((uint8_t *)"key.enc", resp.gen_key.msg, CIPHER_SIZE+SIGNATURE_SIZE);
+}
+void save_key_operation()
+{
+	printf("Entity's ID (to share key with): ");
+	if (fgets((char *)req.save_key.entity_id, ID_SIZE, stdin) == NULL)
+	{
+		printf ("[CLIENT] Error getting ID, try again..\n");
+		return;
+	}
+
+	printf("New Key's ID: ");
+	if (fgets((char *)req.save_key.key_id, ID_SIZE, stdin) == NULL)
+	{
+		printf ("[CLIENT] Error getting ID, try again..\n");
+		return;
+	}
+
+	printf("Message (encrypted key): ");
+	if (get_attribute_from_file(req.save_key.msg) == 0)
+		return;
+	if (resp.status == 0)
+		printf ("[CLIENT] Saved new symmetric key\n");
+}
+void encrypt_authenticate(uint8_t * file)
+{
+	printf("Data filename: ");
+	if ((req.data.data_size = get_attribute_from_file(req.data.data)) == 0)
+		return;
+
+	// send data size
+	send_to_connection(pipe_fd, &req.data.data_size, sizeof(uint16_t));
+	waitOK();
+
+	// send data
+	send_to_connection(pipe_fd, req.data.data, req.data.data_size);
+	waitOK();
+
+	printf("Key ID to use to encrypt/decrypt data: ");
+	if (fgets((char *)req.data.key_id, ID_SIZE, stdin) == NULL)
+	{
+		printf ("[CLIENT] Error getting ID, try again..\n");
+		return;
+	}
+	send_to_connection(pipe_fd, req.data.key_id, ID_SIZE); // send key ID
+
+	// Receives encrypt and authenticated data
+	receive_from_connection(pipe_fd, &resp.data.data_size, sizeof(uint16_t));
+	receive_from_connection(pipe_fd, resp.data.data, resp.data.data_size);
+
+	if (resp.data.data_size <= 0)
+		printf ("Some error ocurred data\n");
+	else
+	{
+		printf ("[CLIENT] Data (\"%s\"):\n%s\n", file, resp.data.data);
+		write_to_file ((uint8_t *)file, resp.data.data, resp.data.data_size);
+	}
+}
+
+void sign_operation()
+{
+	printf("Data filename: ");
+	if ((req.sign.data_size = get_attribute_from_file(req.sign.data)) == 0)
+		return;
+
+	printf ("[CLIENT] Signature: (\"signature.txt\"):\n%s\n", resp.sign.signature);
+	write_to_file ((uint8_t *)"signature.txt", resp.sign.signature, SIGNATURE_SIZE);
 }
 
 uint8_t check_authentication ()

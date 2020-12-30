@@ -16,15 +16,16 @@ int main (void)
 	while(1)
 	{
 		// Check authentication
-		authenticate();
+		// authenticate();
 
-		if (!authenticated)
-			continue;
+		// if (!authenticated)
+		//         continue;
 
 		display_greeting();
 
 		// Receive request from client
-		receive_from_connection(pipe_fd, &req, sizeof(struct request));
+		// receive_from_connection(pipe_fd, &req, sizeof(struct request));
+		receive_from_connection(pipe_fd, &req.op_code, sizeof(uint8_t));
 		printf("[SERVER] Received Operation %d....\n", req.op_code);
 
 		/* --------------------------------------------------- */
@@ -37,10 +38,22 @@ int main (void)
 				// set_PIN(req.admin.PIN);
 				break;
 			case 3: // Encrypt + authenticate data
-				encrypt_authenticate();
-				break;
 			case 4: // Decrypt + authenticate data
-				decrypt_authenticate();
+				// Get data size
+				receive_from_connection(pipe_fd, &req.data.data_size, sizeof(uint16_t));
+				sendOK((uint8_t *)"OK");
+
+				// Get data
+				receive_from_connection(pipe_fd, req.data.data, req.data.data_size);
+				sendOK((uint8_t *)"OK");
+
+				// Get key ID
+				receive_from_connection(pipe_fd, req.data.key_id, ID_SIZE);
+				encrypt_authenticate();
+
+				// Send result
+				send_to_connection(pipe_fd, &resp.data.data_size, sizeof(uint16_t));
+				send_to_connection(pipe_fd, resp.data.data, resp.data.data_size);
 				break;
 			case 5: // Encrypt(sign) with private key
 				sign_operation();
@@ -82,7 +95,7 @@ int main (void)
 		sleep (1);
 		/* --------------------------------------------------- */
 		/* Send response back to client */
-		send_to_connection(pipe_fd, &resp, sizeof(struct response));
+		// send_to_connection(pipe_fd, &resp, sizeof(struct response));
 
 		printf("[SERVER] Sent response to op. %d....\n", resp.op_code);
 	}
@@ -90,14 +103,17 @@ int main (void)
 	return 0;
 }
 
+void sendOK(uint8_t * msg)
+{
+	send_to_connection(pipe_fd, msg, ID_SIZE);
+}
+
 // .cert -> certificate
 // .key  -> private/symmetric key
 void get_key_path (uint8_t * entity, uint8_t * key_path, uint8_t * extension)
 {
-	key_path[0] = '\0';
-	strcpy((char *)key_path, "keys/");
-	strncat((char *)key_path, (char *)entity, strlen((char *)entity)-1);
-	strcat((char *)key_path, (char *)extension);
+	entity[strlen((char *)entity)-1] = 0;
+	snprintf((char*)key_path, ID_SIZE, "%s%s%s", "keys/", entity, extension);
 }
 
 void print_chars (uint8_t * data, uint32_t data_size)
@@ -108,21 +124,23 @@ void print_chars (uint8_t * data, uint32_t data_size)
 	printf("\n");
 }
 
+// Get it from: MSS_SYS_puf_get_number_of_keys()
+// slot number from 2-57 is used as key_id
 uint32_t get_list_comm_keys(uint8_t * list)
 {
 	DIR *d;
 	struct dirent *dir;
-	uint8_t newline[] = "\n";
+	uint32_t len=0;
 	d = opendir("./keys");
 	if (d)
 	{
-		list[0] = '\0';
+		list[0] = 0;
 		while ((dir = readdir(d)) != NULL)
 		{
 			if (strstr(dir->d_name, ".key") != NULL)
 			{
-				strncat ((char *)list, dir->d_name, strlen(dir->d_name));
-				strncat ((char *)list, (char *)newline, strlen((char *)newline));
+				snprintf((char *)list+len, DATA_SIZE, "%s\n", dir->d_name);
+				len += strlen(dir->d_name)+1;
 			}
 		}
 		closedir(d);
@@ -158,20 +176,14 @@ void encrypt_authenticate()
 {
 	uint8_t keyfile[ID_SIZE];
 
-	// Encrypt + authenticate data
-	get_key_path(req.data.key_id, keyfile, (uint8_t *)".key");
-	// Encrypt and authenticate data
-	resp.status = resp.data.data_size = encrypt(req.data.data, req.data.data_size, resp.data.data, keyfile);
-}
-
-void decrypt_authenticate()
-{
-	uint8_t keyfile[ID_SIZE];
-
 	get_key_path(req.data.key_id, keyfile, (uint8_t *)".key");
 
+	if (req.op_code == 3)
+		resp.status = resp.data.data_size = encrypt(req.data.data, req.data.data_size, resp.data.data, keyfile);
 	// Decrypt and authenticate data
-	resp.status = resp.data.data_size = decrypt(req.data.data, req.data.data_size, resp.data.data, keyfile);
+	else
+		resp.status = resp.data.data_size = decrypt(req.data.data, req.data.data_size, resp.data.data, keyfile);
+	resp.data.data[resp.data.data_size] = 0;
 }
 
 void sign_operation ()

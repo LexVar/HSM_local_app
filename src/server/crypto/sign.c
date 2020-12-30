@@ -104,7 +104,7 @@ uint32_t sign_data(uint8_t * data, uint32_t data_size, uint8_t * privkey, uint8_
         return -1;
     }
 
-    strncpy((char *)signature, (char *)sig, siglen);
+    memcpy(signature, sig, siglen);
     free(sig);
     free(hash);
 

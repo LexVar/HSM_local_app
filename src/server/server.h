@@ -16,13 +16,13 @@
 
 #define PRIVATE_KEY "keys/test.pem"
 
+void sendOK(uint8_t * msg);
 uint32_t get_list_comm_keys(uint8_t * list);
 void print_hex (uint8_t * data, uint32_t data_size);
 void print_chars (uint8_t * data, uint32_t data_size);
 void get_key_path (uint8_t * entity, uint8_t * key_path, uint8_t * extension);
 void authenticate();
 void encrypt_authenticate();
-void decrypt_authenticate();
 void sign_operation();
 void verify_operation();
 void import_pubkey_operation();
