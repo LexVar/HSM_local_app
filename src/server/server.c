@@ -24,7 +24,7 @@ int main (void)
 		resp.op_code = req.op_code; // same op_code for response
 
 		// Check authentication
-		if (req.op_code != 1 && !authenticated)
+		if (req.op_code > 1 && !authenticated)
 		{
 			sendOK((uint8_t *)"NO"); // send not authorized response
 			continue;
@@ -40,7 +40,7 @@ int main (void)
 				authenticate();
 				break;
 			case 2: // Change PIN
-				// set_PIN(req.admin.PIN);
+				set_pin();
 				break;
 			case 3: // Encrypt + authenticate data
 			case 4: // Decrypt + authenticate data
@@ -123,23 +123,12 @@ int main (void)
 				printf("[SERVER] User logged out..\n");
 				break;
 			case 0:
-				printf("[SERVER] Stopping server..\n");
-				cleanup();
-				exit(0);
 				break;
 			default:
+				sendOK((uint8_t *)"NO");
 				printf("Wrong choice, try again\n");
 		}
-
 		printf("\n[SERVER] Finished Op. %d\n", req.op_code);
-
-		// wait for client to open pipe for reading
-		// sleep (0.5);
-		/* --------------------------------------------------- */
-		/* Send response back to client */
-		// send_to_connection(pipe_fd, &resp, sizeof(struct response));
-
-		printf("[SERVER] Sent response to op. %d....\n", resp.op_code);
 	}
 
 	return 0;
@@ -188,6 +177,15 @@ uint32_t get_list_comm_keys(uint8_t * list)
 		closedir(d);
 	}
 	return 0;
+}
+
+void set_pin()
+{
+	receive_from_connection(pipe_fd, req.admin.pin, PIN_SIZE);
+
+	memcpy(AUTH_PIN, req.admin.pin, PIN_SIZE);
+
+	sendOK((uint8_t *)"OK");
 }
 
 void authenticate()

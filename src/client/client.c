@@ -45,14 +45,7 @@ int main(void)
 				authenticate();
 				break;
 			case 2:	// Change authentication PIN
-				printf("New PIN: ");
-				if (fgets((char *)req.admin.pin, PIN_SIZE, stdin) == NULL)
-				{
-					printf ("[CLIENT] Error getting PIN, try again..\n");
-					continue;
-				}
-				if (resp.status == 0)
-					printf ("[CLIENT] PIN was changed succesfully\n");
+				set_pin();
 				break;
 			case 3: // Encrypt and authenticate data
 				encrypt_authenticate((uint8_t *)"data.enc");
@@ -89,15 +82,44 @@ int main(void)
 				exit(0);
 				break;
 			default:
+				waitOK();
 				printf("\n[CLIENT] %d. Is not a valid operation\n", req.op_code);
-				sleep (0.5);
-				continue;
 		}
-
-		// Wait before printing the menu again
-		// sleep(0.5);
 	}
 	return 0;
+}
+
+uint8_t set_pin()
+{
+	printf("New PIN: ");
+	if (fgets((char *)req.admin.pin, PIN_SIZE, stdin) == NULL)
+	{
+		printf ("[CLIENT] Error getting PIN, try again..\n");
+		return 0;
+	}
+	send_to_connection(pipe_fd, req.admin.pin, PIN_SIZE);
+
+	return waitOK();
+}
+
+uint8_t authenticate()
+{
+	printf("PIN: ");
+
+	if (fgets((char *)req.auth.pin, PIN_SIZE, stdin) == NULL)
+	{
+		printf ("[CLIENT] Error getting PIN, try again..\n");
+		return 0;
+	}
+	send_to_connection(pipe_fd, req.auth.pin, PIN_SIZE);
+
+	receive_from_connection(pipe_fd, &resp.status, sizeof(uint8_t));
+	if (resp.status == 0)
+		printf("[CLIENT] Authentication failed\n");
+	else
+		printf("[CLIENT] Authentication SUCCESS\n");
+
+	return resp.status;
 }
 
 uint8_t waitOK()
@@ -292,26 +314,6 @@ void encrypt_authenticate(uint8_t * file)
 		printf ("[CLIENT] Data (\"%s\"):\n%s\n", file, resp.data.data);
 		write_to_file ((uint8_t *)file, resp.data.data, resp.data.data_size);
 	}
-}
-
-uint8_t authenticate()
-{
-	printf("PIN: ");
-
-	if (fgets((char *)req.auth.pin, PIN_SIZE, stdin) == NULL)
-	{
-		printf ("[CLIENT] Error getting PIN, try again..\n");
-		return 0;
-	}
-	send_to_connection(pipe_fd, req.auth.pin, PIN_SIZE);
-
-	receive_from_connection(pipe_fd, &resp.status, sizeof(uint8_t));
-	if (resp.status == 0)
-		printf("[CLIENT] Authentication failed\n");
-	else
-		printf("[CLIENT] Authentication SUCCESS\n");
-
-	return resp.status;
 }
 
 uint32_t get_attribute_from_file (uint8_t * attribute)
