@@ -15,12 +15,6 @@ int main (void)
 
 	while(1)
 	{
-		// Check authentication
-		// authenticate();
-
-		// if (!authenticated)
-		//         continue;
-
 		display_greeting();
 
 		// Receive request from client
@@ -28,11 +22,21 @@ int main (void)
 		receive_from_connection(pipe_fd, &req.op_code, sizeof(uint8_t));
 		printf("[SERVER] Received Operation %d....\n", req.op_code);
 
+		/* set requests attributes */
+		resp.op_code = req.op_code;
+
+		// Check authentication
+		// if (req.op_code != 1 && !authenticated)
+		// {
+		//         continue;
+		// }
+
 		/* --------------------------------------------------- */
 		/* Perform operation */
 		switch (req.op_code)
 		{
 			case 1: // Authentication
+				authenticate();
 				break;
 			case 2: // Change PIN
 				// set_PIN(req.admin.PIN);
@@ -56,22 +60,61 @@ int main (void)
 				send_to_connection(pipe_fd, resp.data.data, resp.data.data_size);
 				break;
 			case 5: // Encrypt(sign) with private key
+				receive_from_connection(pipe_fd, &req.sign.data_size, sizeof(uint16_t));
+				sendOK((uint8_t *)"OK");
+
+				// Get data
+				receive_from_connection(pipe_fd, req.sign.data, req.sign.data_size);
+				sendOK((uint8_t *)"OK");
 				sign_operation();
+				// Send signature
+				send_to_connection(pipe_fd, resp.sign.signature, SIGNATURE_SIZE);
 				break;
 			case 6: // Verify signature
+				receive_from_connection(pipe_fd, &req.verify.data_size, sizeof(uint16_t));
+				sendOK((uint8_t *)"OK");
+
+				receive_from_connection(pipe_fd, req.verify.data, req.verify.data_size);
+				sendOK((uint8_t *)"OK");
+
+				receive_from_connection(pipe_fd, req.verify.signature, SIGNATURE_SIZE);
+				sendOK((uint8_t *)"OK");
+
+				receive_from_connection(pipe_fd, req.verify.entity_id, ID_SIZE);
+
 				verify_operation();
+
+				// Send status
+				send_to_connection(pipe_fd, &resp.status, sizeof(uint8_t));
 				break;
 			case 7: // Import public key
+				receive_from_connection(pipe_fd, req.import_pub.entity_id, ID_SIZE);
+				receive_from_connection(pipe_fd, &req.import_pub.cert_size, sizeof(uint16_t));
+				sendOK((uint8_t *)"OK");
+				receive_from_connection(pipe_fd, req.import_pub.public_key, req.import_pub.cert_size);
 				import_pubkey_operation();
+
+				send_to_connection(pipe_fd, &resp.status, sizeof(uint8_t));
 				break;
 			case 8: // Share key
+				receive_from_connection(pipe_fd, req.gen_key.entity_id, ID_SIZE);
+				receive_from_connection(pipe_fd, req.gen_key.key_id, ID_SIZE);
 				share_key_operation();
+
+				send_to_connection(pipe_fd, resp.gen_key.msg, CIPHER_SIZE+SIGNATURE_SIZE);
 				break;
 			case 9: // Save key
+				receive_from_connection(pipe_fd, req.save_key.entity_id, ID_SIZE);
+				receive_from_connection(pipe_fd, req.save_key.key_id, ID_SIZE);
+				receive_from_connection(pipe_fd, req.save_key.msg, CIPHER_SIZE+SIGNATURE_SIZE);
 				save_key_operation();
+
+				send_to_connection(pipe_fd, &resp.status, sizeof(uint8_t));
 				break;
 			case 10: // List avaiable secure comm keys
 				get_list_comm_keys (resp.list.list);
+
+				send_to_connection(pipe_fd, resp.list.list, DATA_SIZE);
 				break;
 			case 11:
 				authenticated = 0;
@@ -88,11 +131,9 @@ int main (void)
 		}
 
 		printf("\n[SERVER] Finished Op. %d\n", req.op_code);
-		/* set requests attributes */
-		resp.op_code = req.op_code;
 
 		// wait for client to open pipe for reading
-		sleep (1);
+		sleep (0.5);
 		/* --------------------------------------------------- */
 		/* Send response back to client */
 		// send_to_connection(pipe_fd, &resp, sizeof(struct response));
@@ -167,7 +208,6 @@ void authenticate()
 		else
 			printf("[SERVER] Authentication failed\n");
 
-		sleep (1);
 		send_to_connection(pipe_fd, &resp, sizeof(struct response));
 	}
 }
@@ -213,7 +253,8 @@ void import_pubkey_operation()
 {
 	uint8_t keyfile[ID_SIZE];
 	get_key_path(req.import_pub.entity_id, keyfile, (uint8_t *)".cert");
-	if (write_to_file(keyfile, req.import_pub.public_key, PUB_KEY_SIZE) != NULL)
+
+	if (write_to_file(keyfile, req.import_pub.public_key, req.import_pub.cert_size) != NULL)
 		resp.status = 0;
 	else
 		resp.status = 1;
@@ -292,6 +333,7 @@ void display_greeting ()
 8. Share key\n\
 9. Save key\n\
 10. List comm keys\n\
+11. Logout\n\
 0. Quit\n\
 --------------------\n\n\
 Operation: ";

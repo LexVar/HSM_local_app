@@ -86,8 +86,8 @@ struct sign_response {
 
 // Verify document signature request, response structures
 struct verify_request {
-	uint8_t signature[SIGNATURE_SIZE]; // Data signature
-	uint8_t entity_id[ID_SIZE];	// ID of entity who signed the data
+	uint8_t signature[SIGNATURE_SIZE];	// Data signature
+	uint8_t entity_id[ID_SIZE];		// ID of entity who signed the data
 	uint16_t data_size;
 	uint8_t data[DATA_SIZE];		// Data signed
 };
@@ -98,8 +98,9 @@ struct verify_response {
 
 // Import public key request, response structures
 struct import_pub_request {
-	uint8_t entity_id[ID_SIZE];	// ID of entity
+	uint8_t entity_id[ID_SIZE];		// ID of entity
 	uint8_t public_key[PUB_KEY_SIZE];	// Public key of the entity
+	uint16_t cert_size;
 };
 
 struct import_pub_response {

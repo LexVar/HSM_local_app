@@ -43,7 +43,7 @@ uint32_t send_to_connection (uint32_t fd, void * structure, uint32_t struct_size
 		exit(0);
 	}
 
-	sleep (1);
+	sleep (0.1);
 	if ((bytes = write(fd, structure, struct_size)) == -1) {
 		perror("Error writing to pipe: ");
 		close(fd);
