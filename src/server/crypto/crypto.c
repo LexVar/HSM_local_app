@@ -2,6 +2,7 @@
 #include "aes/aes_ctr.c"
 
 // Generates new AES key, saves to aes.key file
+// Generate both AES and HMAC key, ence 2*
 void new_key(uint8_t * key_file)
 {
 	FILE *fout;
@@ -128,6 +129,11 @@ uint32_t ctr_encryption(uint8_t * plaintext, uint32_t size, uint8_t * iv, uint8_
 	return total_bytes;
 }
 
+// Encrypts in buffer of inlen size, with key in key_file. Stores ciphertext in out buffer.
+// in  - input plaintext
+// inlen - plaintext size
+// out - output ciphertext
+// key_file - file of symmetric key (for AES and HMAC)
 uint32_t encrypt(uint8_t * in, uint32_t inlen, uint8_t * out, uint8_t * key_file)
 {
 	uint8_t * mac;
@@ -141,10 +147,11 @@ uint32_t encrypt(uint8_t * in, uint32_t inlen, uint8_t * out, uint8_t * key_file
 	// read keys from file
 	if(read_key(key, key_file, 2*KEY_SIZE) == 0)
 		return 0;
-	// set mac key
+	// set mac key pointer
 	mac_key = &key[KEY_SIZE];
 
 	// Generate random IV
+	// USE NRGB HERE
 	if ( !RAND_bytes(iv, sizeof(iv)) )
 		exit(-1);
 
@@ -161,7 +168,7 @@ uint32_t encrypt(uint8_t * in, uint32_t inlen, uint8_t * out, uint8_t * key_file
 	// concatenate the 3 components for final result
 	if (mac != NULL && size > 0)
 	{
-		/* write MAC+IV+MESSAGE to file */
+		/* MAC+IV+MESSAGE to out ptr */
 		concatenate (out, mac, 0, MAC_SIZE);
 		concatenate (out, iv, MAC_SIZE, AES_BLOCK_SIZE);
 		concatenate (out, ciphertext, MAC_SIZE+AES_BLOCK_SIZE, size);
@@ -178,6 +185,11 @@ uint32_t encrypt(uint8_t * in, uint32_t inlen, uint8_t * out, uint8_t * key_file
 	return size;
 }
 
+// Decrypts in buffer of inlen size, with key in key_file. Stores plaintext at out buffer.
+// in  - ciphertext
+// inlen - ciphertext size
+// out - output plaintext
+// key_file - file of key used to encrypt ciphertext
 uint32_t decrypt(uint8_t * in, uint32_t inlen, uint8_t * out, uint8_t * key_file)
 {
 	uint8_t mac[MAC_SIZE];
@@ -234,6 +246,10 @@ uint32_t decrypt(uint8_t * in, uint32_t inlen, uint8_t * out, uint8_t * key_file
 	return total_bytes;
 }
 
+// Compute HMAC with SHA256 hashing, from ciphertext and IV
+// key - key info of KEY_SIZE
+// message - ciphertext+IV
+// size - size of message
 uint8_t * compute_hmac(uint8_t * key, uint8_t * message, uint32_t size)
 {
 	uint8_t * md;

@@ -13,18 +13,19 @@ int main(void)
 	while (1) {
 		printf ("Press ENTER to continue...\n");
 		if (fgets((char *)greetings, DATA_SIZE, stdin) == NULL)
-		{
-			printf ("[CLIENT] Error stdin..\n");
 			continue;
-		}
 
+		// Get greetings message
 		receive_from_connection(pipe_fd, greetings, sizeof(greetings));
-
 		printf ("%s", greetings);
+
+		// Input op code from stdin
 		scanf("%hhd", &(req.op_code));
 
 		flush_stdin();
 
+		// Send op code and wait for confirmation
+		// If error occurs, user must choose code:1 and authenticate with PIN
 		send_to_connection(pipe_fd, &req.op_code, sizeof(uint8_t));
 		if (!waitOK())
 		{
@@ -63,14 +64,14 @@ int main(void)
 			case 9:	// Save key
 				save_key_operation();
 				break;
-			case 10:
+			case 10: // Get available symmetric key list
 				receive_from_connection(pipe_fd, resp.list.list,DATA_SIZE);
 				sendOK((uint8_t *)"OK");
 
 				printf ("List of keys:\n");
 				printf("%s", resp.list.list);
 				break;
-			case 11:
+			case 11: // Logout request
 				printf ("[CLIENT] Sending logout request\n");
 				waitOK();
 				break;
@@ -86,6 +87,7 @@ int main(void)
 	return 0;
 }
 
+// Operation 2: Set new authentication PIN
 uint8_t set_pin()
 {
 	printf("New PIN: ");
@@ -99,6 +101,7 @@ uint8_t set_pin()
 	return waitOK();
 }
 
+// Operation 1: Authenticate
 uint8_t authenticate()
 {
 	printf("PIN: ");
@@ -119,25 +122,55 @@ uint8_t authenticate()
 	return resp.status;
 }
 
-void sendOK(uint8_t * msg)
+// Operation 3: encrypt + authenticate
+// Operation 4: decrypt + authenticate
+void encrypt_authenticate(uint8_t * file)
 {
-	send_to_connection(pipe_fd, msg, sizeof(msg));
-}
+	printf("Data filename: ");
+	if ((req.data.data_size = get_attribute_from_file(req.data.data)) == 0)
+	{
+		printf ("Some error\n");
+	}
 
-uint8_t waitOK()
-{
-	uint8_t msg[ID_SIZE];
-	receive_from_connection(pipe_fd, msg, ID_SIZE);
+	// send data size
+	send_to_connection(pipe_fd, &req.data.data_size, sizeof(uint16_t));
+	if (!waitOK())
+		return;
 
-	printf ("%s\n", msg);
+	// send data
+	send_to_connection(pipe_fd, req.data.data, req.data.data_size);
+	if (!waitOK())
+		return;
 
-	if (msg[0] != 'O' || msg[1] != 'K')
-		resp.status = 0;
+	printf("Key ID to use to encrypt/decrypt data: ");
+	if (fgets((char *)req.data.key_id, ID_SIZE, stdin) == NULL)
+	{
+		printf ("[CLIENT] Error getting ID\n");
+		req.data.key_id[0] = 0; // marks it's invalid
+	}
+
+	send_to_connection(pipe_fd, req.data.key_id, ID_SIZE); // send key ID
+	if (!waitOK())
+		return;
+
+	// Receives encrypt and authenticated data
+	receive_from_connection(pipe_fd, &resp.data.data_size, sizeof(uint16_t));
+	sendOK((uint8_t *)"OK");
+	receive_from_connection(pipe_fd, resp.data.data, resp.data.data_size);
+	sendOK((uint8_t *)"OK");
+
+	if (resp.data.data_size <= 0)
+		printf ("Some error ocurred data\n");
 	else
-		resp.status = 1;
-	return resp.status;
+	{
+		// If success, data in resp.data.data
+		resp.data.data[resp.data.data_size] = 0;
+		printf ("[CLIENT] Data (\"%s\"):\n%s\n", file, resp.data.data);
+		write_to_file ((uint8_t *)file, resp.data.data, resp.data.data_size);
+	}
 }
 
+// Operation 5: sign data
 void sign_operation()
 {
 	printf("Data filename: ");
@@ -169,6 +202,7 @@ void sign_operation()
 	write_to_file ((uint8_t *)"signature.txt", resp.sign.signature, SIGNATURE_SIZE);
 }
 
+// Operation 6: verify signature from data
 void verify_operation()
 {
 	printf("Data filename: ");
@@ -218,6 +252,7 @@ void verify_operation()
 	else
 		printf ("[CLIENT] Signature failed verification\n");
 }
+// Operation 7: import public key certificate
 void import_pubkey_operation()
 {
 	printf("Entity's ID: ");
@@ -252,6 +287,7 @@ void import_pubkey_operation()
 	if (resp.status != 0)
 		printf ("[CLIENT] Public key successfully saved\n");
 }
+// Operation 8: Generate new key for sharing
 void share_key_operation()
 {
 	printf("Entity's ID (to share key with): ");
@@ -288,9 +324,10 @@ void share_key_operation()
 	printf ("[CLIENT] Generated encrypted key (\"new_key.enc\"): \n%s\n", resp.gen_key.msg);
 	write_to_file ((uint8_t *)"key.enc", resp.gen_key.msg, CIPHER_SIZE+SIGNATURE_SIZE);
 }
+// Operation 9: Save generated key from other entity
 void save_key_operation()
 {
-	printf("Entity's ID (to share key with): ");
+	printf("Sender entity's ID: ");
 	if (fgets((char *)req.save_key.entity_id, ID_SIZE, stdin) == NULL)
 	{
 		printf ("[CLIENT] Error getting ID, try again..\n");
@@ -320,53 +357,10 @@ void save_key_operation()
 
 	receive_from_connection(pipe_fd, &resp.status, sizeof(uint8_t));
 
-	if (resp.status == 0)
+	if (resp.status != 0)
 		printf ("[CLIENT] Saved new symmetric key\n");
-}
-void encrypt_authenticate(uint8_t * file)
-{
-	printf("Data filename: ");
-	if ((req.data.data_size = get_attribute_from_file(req.data.data)) == 0)
-	{
-		printf ("Some error\n");
-		req.data.data[0] = 0;
-	}
-
-	// send data size
-	send_to_connection(pipe_fd, &req.data.data_size, sizeof(uint16_t));
-	if (!waitOK())
-		return;
-
-	// send data
-	send_to_connection(pipe_fd, req.data.data, req.data.data_size);
-	if (!waitOK())
-		return;
-
-	printf("Key ID to use to encrypt/decrypt data: ");
-	if (fgets((char *)req.data.key_id, ID_SIZE, stdin) == NULL)
-	{
-		printf ("[CLIENT] Error getting ID\n");
-		req.data.key_id[0] = 0; // marks it's invalid
-	}
-
-	send_to_connection(pipe_fd, req.data.key_id, ID_SIZE); // send key ID
-	if (!waitOK())
-		return;
-
-	// Receives encrypt and authenticated data
-	receive_from_connection(pipe_fd, &resp.data.data_size, sizeof(uint16_t));
-	sendOK((uint8_t *)"OK");
-	receive_from_connection(pipe_fd, resp.data.data, resp.data.data_size);
-	sendOK((uint8_t *)"OK");
-
-	if (resp.data.data_size <= 0)
-		printf ("Some error ocurred data\n");
 	else
-	{
-		resp.data.data[resp.data.data_size] = 0;
-		printf ("[CLIENT] Data (\"%s\"):\n%s\n", file, resp.data.data);
-		write_to_file ((uint8_t *)file, resp.data.data, resp.data.data_size);
-	}
+		printf ("[CLIENT] Some error ocurred\n");
 }
 
 uint32_t get_attribute_from_file (uint8_t * attribute)
@@ -382,6 +376,25 @@ uint32_t get_attribute_from_file (uint8_t * attribute)
 
 	// get data and size from file
 	return read_from_file (filename, attribute);
+}
+
+void sendOK(uint8_t * msg)
+{
+	send_to_connection(pipe_fd, msg, sizeof(msg));
+}
+
+uint8_t waitOK()
+{
+	uint8_t msg[ID_SIZE];
+	receive_from_connection(pipe_fd, msg, ID_SIZE);
+
+	printf ("%s\n", msg);
+
+	if (msg[0] != 'O' || msg[1] != 'K')
+		resp.status = 0;
+	else
+		resp.status = 1;
+	return resp.status;
 }
 
 void cleanup()

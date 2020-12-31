@@ -24,7 +24,6 @@ void print_hex (uint8_t * data, uint32_t data_size);
 void print_chars (uint8_t * data, uint32_t data_size);
 void get_key_path (uint8_t * entity, uint8_t * key_path, uint8_t * extension);
 void authenticate();
-void set_pin();
 void encrypt_authenticate();
 void sign_operation();
 void verify_operation();
