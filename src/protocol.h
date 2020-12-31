@@ -11,7 +11,7 @@
 #define MAC_SIZE 32		// HMAC-SHA-256
 // #define SIGNATURE_SIZE 96	// 768 bit signature from curve P-384
 #define ID_SIZE 30
-#define PIN_SIZE 5
+#define PIN_SIZE 6
 #define KEY_SIZE 16		// Symmetric key size - 256 + 128 bits
 #define ECC_KEY_SIZE 48		// ECC 384 bit keys
 // #define PUB_KEY_SIZE 96	// ECC 768 bit public keys

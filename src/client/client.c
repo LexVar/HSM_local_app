@@ -23,14 +23,6 @@ int main(void)
                 //
 		// waitOK("OK");
 
-		// if (check_authentication() != 1)
-		// {
-		//         printf("[CLIENT] Authentication failed\n");
-		//         continue;
-		// }
-
-		// printf("[CLIENT] Authentication succesfull\n");
-
 		receive_from_connection(pipe_fd, greetings, sizeof(greetings));
 
 		printf ("%s", greetings);
@@ -39,10 +31,19 @@ int main(void)
 		flush_stdin();
 
 		send_to_connection(pipe_fd, &req.op_code, sizeof(uint8_t));
+		if (!waitOK())
+		{
+			printf ("NOT AUTHENTICATED\n");
+			continue;
+		}
+
 		// ------------------------------
 		// set request attributes depending on op. code
 		switch (req.op_code)
 		{
+			case 1: // Authentication request
+				authenticate();
+				break;
 			case 2:	// Change authentication PIN
 				printf("New PIN: ");
 				if (fgets((char *)req.admin.pin, PIN_SIZE, stdin) == NULL)
@@ -81,7 +82,7 @@ int main(void)
 				break;
 			case 11:
 				printf ("[CLIENT] Sending logout request\n");
-				send_to_connection(pipe_fd, &req.op_code, sizeof(uint8_t));
+				waitOK();
 				break;
 			case 0:
 				printf("[CLIENT] Stopping client..\n");
@@ -94,18 +95,23 @@ int main(void)
 		}
 
 		// Wait before printing the menu again
-		sleep(0.5);
+		// sleep(0.5);
 	}
 	return 0;
 }
 
-void waitOK()
+uint8_t waitOK()
 {
 	uint8_t msg[ID_SIZE];
 	receive_from_connection(pipe_fd, msg, ID_SIZE);
 
-	if (msg[0] != 'O' && msg[1] != 'K')
-		printf ("%s", msg);
+	printf ("%s\n", msg);
+
+	if (msg[0] != 'O' || msg[1] != 'K')
+		resp.status = 0;
+	else
+		resp.status = 1;
+	return resp.status;
 }
 
 void sign_operation()
@@ -288,24 +294,23 @@ void encrypt_authenticate(uint8_t * file)
 	}
 }
 
-uint8_t check_authentication ()
+uint8_t authenticate()
 {
-	receive_from_connection(pipe_fd, &resp, sizeof(struct response));
-	if (resp.status != 1)
+	printf("PIN: ");
+
+	if (fgets((char *)req.auth.pin, PIN_SIZE, stdin) == NULL)
 	{
-		req.op_code = 1;
-		printf("PIN: ");
-
-		if (fgets((char *)req.auth.pin, PIN_SIZE, stdin) == NULL)
-		{
-			printf ("[CLIENT] Error getting PIN, try again..\n");
-			return 0;
-		}
-		send_to_connection(pipe_fd, &req, sizeof(struct request));
-		printf("[CLIENT] Sent Auth request\n");
-
-		receive_from_connection(pipe_fd, &resp, sizeof(struct response));
+		printf ("[CLIENT] Error getting PIN, try again..\n");
+		return 0;
 	}
+	send_to_connection(pipe_fd, req.auth.pin, PIN_SIZE);
+
+	receive_from_connection(pipe_fd, &resp.status, sizeof(uint8_t));
+	if (resp.status == 0)
+		printf("[CLIENT] Authentication failed\n");
+	else
+		printf("[CLIENT] Authentication SUCCESS\n");
+
 	return resp.status;
 }
 

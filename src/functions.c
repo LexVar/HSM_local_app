@@ -25,7 +25,7 @@ uint32_t receive_from_connection (uint32_t fd, void * structure, uint32_t struct
 		exit(0);
 	}
 
-	sleep(0.1);
+	sleep(0.3);
 	close(fd);
 	return bytes;
 }
@@ -43,15 +43,16 @@ uint32_t send_to_connection (uint32_t fd, void * structure, uint32_t struct_size
 		exit(0);
 	}
 
-	sleep (0.1);
+	sleep (0.3);
 	if ((bytes = write(fd, structure, struct_size)) == -1) {
 		perror("Error writing to pipe: ");
 		close(fd);
 		exit(0);
 	}
 
-	sleep (0.1);
+	sleep (0.3);
 	close(fd);
+	sleep (0.3);
 	return bytes;
 }
 

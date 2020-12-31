@@ -17,19 +17,20 @@ int main (void)
 	{
 		display_greeting();
 
-		// Receive request from client
-		// receive_from_connection(pipe_fd, &req, sizeof(struct request));
+		// Receive operation request
 		receive_from_connection(pipe_fd, &req.op_code, sizeof(uint8_t));
 		printf("[SERVER] Received Operation %d....\n", req.op_code);
 
-		/* set requests attributes */
-		resp.op_code = req.op_code;
+		resp.op_code = req.op_code; // same op_code for response
 
 		// Check authentication
-		// if (req.op_code != 1 && !authenticated)
-		// {
-		//         continue;
-		// }
+		if (req.op_code != 1 && !authenticated)
+		{
+			sendOK((uint8_t *)"NO"); // send not authorized response
+			continue;
+		}
+		else
+			sendOK((uint8_t *)"OK"); // send not authorized response
 
 		/* --------------------------------------------------- */
 		/* Perform operation */
@@ -118,8 +119,8 @@ int main (void)
 				break;
 			case 11:
 				authenticated = 0;
+				sendOK((uint8_t *)"OK");
 				printf("[SERVER] User logged out..\n");
-				resp.status = 1;
 				break;
 			case 0:
 				printf("[SERVER] Stopping server..\n");
@@ -133,7 +134,7 @@ int main (void)
 		printf("\n[SERVER] Finished Op. %d\n", req.op_code);
 
 		// wait for client to open pipe for reading
-		sleep (0.5);
+		// sleep (0.5);
 		/* --------------------------------------------------- */
 		/* Send response back to client */
 		// send_to_connection(pipe_fd, &resp, sizeof(struct response));
@@ -191,25 +192,20 @@ uint32_t get_list_comm_keys(uint8_t * list)
 
 void authenticate()
 {
-	// Send authentication status
-	resp.status = authenticated;
-	resp.op_code = 1;
-	send_to_connection(pipe_fd, &resp, sizeof(struct response));
+	// get PIN from user
+	receive_from_connection(pipe_fd, req.auth.pin, PIN_SIZE);
 
-	printf("PIN:%s\n",AUTH_PIN);
+	printf("PIN:%s\n", AUTH_PIN);
+	// check PIN
+	authenticated = resp.status = !compare_strings(req.auth.pin, AUTH_PIN, PIN_SIZE);
+
 	if (!authenticated)
-	{
-		receive_from_connection(pipe_fd, &req, sizeof(struct request));
+		printf("[SERVER] Authentication failed\n");
+	else
+		printf("[SERVER] Authentication succesfull\n");
 
-		authenticated = resp.status = !compare_strings(req.auth.pin, AUTH_PIN, sizeof(AUTH_PIN));
-
-		if (authenticated)
-			printf("[SERVER] Authentication succesfull\n");
-		else
-			printf("[SERVER] Authentication failed\n");
-
-		send_to_connection(pipe_fd, &resp, sizeof(struct response));
-	}
+	// send resonse back
+	send_to_connection(pipe_fd, &authenticated, sizeof(uint8_t));
 }
 
 void encrypt_authenticate()

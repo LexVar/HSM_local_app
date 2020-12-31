@@ -10,9 +10,9 @@
 #include "../functions.c"
 
 void encrypt_authenticate();
-void waitOK();
+uint8_t waitOK();
 uint32_t get_attribute_from_file (uint8_t * attribute);
-uint8_t check_authentication ();
+uint8_t authenticate();
 void cleanup();
 void encrypt_authenticate(uint8_t * file);
 void sign_operation();
