@@ -23,7 +23,7 @@ void init_crypto_state ();
 uint32_t simpleSHA256(void * input, unsigned long length, uint8_t * md);
 void concatenate(uint8_t * dest, uint8_t * src, uint32_t start, uint32_t length);
 uint32_t compare_strings(uint8_t * m1, uint8_t * m2, uint32_t length);
-void read_key(uint8_t * key, uint8_t * key_file, uint32_t key_size);
+uint8_t read_key(uint8_t * key, uint8_t * key_file, uint32_t key_size);
 uint32_t encrypt(uint8_t * in, uint32_t inlen, uint8_t * out, uint8_t * key_file);
 uint32_t ctr_encryption(uint8_t * plaintext, uint32_t size, uint8_t * iv, uint8_t * ciphertext, uint8_t * key_bytes);
 uint32_t decrypt(uint8_t * in, uint32_t inlen, uint8_t * out, uint8_t * key_file);

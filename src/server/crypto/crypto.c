@@ -46,7 +46,7 @@ uint32_t compare_strings(uint8_t * m1, uint8_t * m2, uint32_t length)
 }
 
 // Read key from aes.key file
-void read_key(uint8_t * key, uint8_t * key_file, uint32_t key_size)
+uint8_t read_key(uint8_t * key, uint8_t * key_file, uint32_t key_size)
 {
 	FILE *fin;
 
@@ -55,9 +55,13 @@ void read_key(uint8_t * key, uint8_t * key_file, uint32_t key_size)
 	{
 		fread(key, key_size, 1, fin);
 		fclose(fin);
+		return 1;
 	}
 	else
+	{
 		printf("Error reading key.\n");
+		return 0;
+	}
 }
 
 void init_ctr_state (ctr_state * state, uint8_t iv[AES_BLOCK_SIZE], uint8_t key_bytes[KEY_SIZE])
@@ -135,7 +139,8 @@ uint32_t encrypt(uint8_t * in, uint32_t inlen, uint8_t * out, uint8_t * key_file
 	uint32_t size;
 
 	// read keys from file
-	read_key(key, key_file, 2*KEY_SIZE);
+	if(read_key(key, key_file, 2*KEY_SIZE) == 0)
+		return 0;
 	// set mac key
 	mac_key = &key[KEY_SIZE];
 
@@ -186,7 +191,9 @@ uint32_t decrypt(uint8_t * in, uint32_t inlen, uint8_t * out, uint8_t * key_file
 	uint32_t total_bytes = 0;
 
 	// read key from file
-	read_key(key, key_file, 2*KEY_SIZE);
+	if (read_key(key, key_file, 2*KEY_SIZE) == 0)
+		return 0;
+
 	mac_key = &key[KEY_SIZE];
 
 	// Read the MAC
@@ -219,7 +226,10 @@ uint32_t decrypt(uint8_t * in, uint32_t inlen, uint8_t * out, uint8_t * key_file
 			printf ("Message decrypted..\n");
 	}
 	else
+	{
+		total_bytes = 0;
 		printf ("Error verifing the mac!\n");
+	}
 
 	return total_bytes;
 }

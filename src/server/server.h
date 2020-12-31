@@ -16,6 +16,8 @@
 
 #define PRIVATE_KEY "keys/test.pem"
 
+uint8_t send_status(uint8_t status);
+uint8_t waitOK();
 void sendOK(uint8_t * msg);
 uint32_t get_list_comm_keys(uint8_t * list);
 void print_hex (uint8_t * data, uint32_t data_size);

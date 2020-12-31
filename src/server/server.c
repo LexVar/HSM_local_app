@@ -2,9 +2,9 @@
 
 uint8_t AUTH_PIN[PIN_SIZE];
 uint32_t pipe_fd;		// pipe file descriptor
-struct request req;	// request structure
-struct response resp;	// response structure
-uint8_t authenticated = 0;  // Flag, 1-authenticated, 0-not authenticated
+struct request req;		// request structure
+struct response resp;		// response structure
+uint8_t authenticated = 0;	// Flag, 1-authenticated, 0-not authenticated
 
 int main (void)
 {
@@ -46,34 +46,49 @@ int main (void)
 			case 4: // Decrypt + authenticate data
 				// Get data size
 				receive_from_connection(pipe_fd, &req.data.data_size, sizeof(uint16_t));
-				sendOK((uint8_t *)"OK");
+				if (send_status(req.data.data_size) == 0)
+					continue;
 
 				// Get data
 				receive_from_connection(pipe_fd, req.data.data, req.data.data_size);
-				sendOK((uint8_t *)"OK");
+				if (send_status(req.data.data[0]) == 0)
+					continue;
 
 				// Get key ID
 				receive_from_connection(pipe_fd, req.data.key_id, ID_SIZE);
+				sendOK((uint8_t *)"OK");
+
 				encrypt_authenticate();
 
 				// Send result
 				send_to_connection(pipe_fd, &resp.data.data_size, sizeof(uint16_t));
+				waitOK();
 				send_to_connection(pipe_fd, resp.data.data, resp.data.data_size);
+				waitOK();
 				break;
 			case 5: // Encrypt(sign) with private key
 				receive_from_connection(pipe_fd, &req.sign.data_size, sizeof(uint16_t));
-				sendOK((uint8_t *)"OK");
+				if (send_status(req.sign.data_size) == 0)
+					continue;
 
 				// Get data
 				receive_from_connection(pipe_fd, req.sign.data, req.sign.data_size);
 				sendOK((uint8_t *)"OK");
+
 				sign_operation();
-				// Send signature
+
+				send_to_connection(pipe_fd, &resp.status, sizeof(uint8_t));
+				waitOK();
+				if (resp.status == 0)
+					continue;
 				send_to_connection(pipe_fd, resp.sign.signature, SIGNATURE_SIZE);
+				waitOK();
 				break;
 			case 6: // Verify signature
 				receive_from_connection(pipe_fd, &req.verify.data_size, sizeof(uint16_t));
-				sendOK((uint8_t *)"OK");
+				// sendOK((uint8_t *)"OK");
+				if (send_status(req.verify.data_size) == 0)
+					continue;
 
 				receive_from_connection(pipe_fd, req.verify.data, req.verify.data_size);
 				sendOK((uint8_t *)"OK");
@@ -82,32 +97,56 @@ int main (void)
 				sendOK((uint8_t *)"OK");
 
 				receive_from_connection(pipe_fd, req.verify.entity_id, ID_SIZE);
+				if (send_status(req.verify.entity_id[0]) == 0)
+					continue;
 
 				verify_operation();
 
 				// Send status
 				send_to_connection(pipe_fd, &resp.status, sizeof(uint8_t));
+				waitOK();
 				break;
 			case 7: // Import public key
 				receive_from_connection(pipe_fd, req.import_pub.entity_id, ID_SIZE);
+				if (send_status(req.import_pub.entity_id[0]) == 0)
+					continue;
 				receive_from_connection(pipe_fd, &req.import_pub.cert_size, sizeof(uint16_t));
-				sendOK((uint8_t *)"OK");
+				if (send_status(req.import_pub.cert_size) == 0)
+					continue;
 				receive_from_connection(pipe_fd, req.import_pub.public_key, req.import_pub.cert_size);
+				if (send_status(req.import_pub.public_key[0]) == 0)
+					continue;
 				import_pubkey_operation();
 
 				send_to_connection(pipe_fd, &resp.status, sizeof(uint8_t));
+				waitOK();
 				break;
 			case 8: // Share key
 				receive_from_connection(pipe_fd, req.gen_key.entity_id, ID_SIZE);
+				if (send_status(req.gen_key.entity_id[0]) == 0)
+					continue;
 				receive_from_connection(pipe_fd, req.gen_key.key_id, ID_SIZE);
+				if (send_status(req.gen_key.key_id[0]) == 0)
+					continue;
 				share_key_operation();
 
+				send_to_connection(pipe_fd, &resp.status, sizeof(uint8_t));
+				waitOK();
+				if (resp.status == 0)
+					continue;
+
 				send_to_connection(pipe_fd, resp.gen_key.msg, CIPHER_SIZE+SIGNATURE_SIZE);
+				waitOK();
 				break;
 			case 9: // Save key
 				receive_from_connection(pipe_fd, req.save_key.entity_id, ID_SIZE);
+				if (send_status(req.save_key.entity_id[0]) == 0)
+					continue;
 				receive_from_connection(pipe_fd, req.save_key.key_id, ID_SIZE);
+				if (send_status(req.save_key.key_id[0]) == 0)
+					continue;
 				receive_from_connection(pipe_fd, req.save_key.msg, CIPHER_SIZE+SIGNATURE_SIZE);
+
 				save_key_operation();
 
 				send_to_connection(pipe_fd, &resp.status, sizeof(uint8_t));
@@ -116,6 +155,7 @@ int main (void)
 				get_list_comm_keys (resp.list.list);
 
 				send_to_connection(pipe_fd, resp.list.list, DATA_SIZE);
+				waitOK();
 				break;
 			case 11:
 				authenticated = 0;
@@ -134,9 +174,18 @@ int main (void)
 	return 0;
 }
 
+uint8_t send_status(uint8_t status)
+{
+	if (status == 0)
+		send_to_connection(pipe_fd, (uint8_t *)"NO", sizeof("NO"));
+	else
+		send_to_connection(pipe_fd, (uint8_t *)"OK", sizeof("OK"));
+	return status;
+}
+
 void sendOK(uint8_t * msg)
 {
-	send_to_connection(pipe_fd, msg, ID_SIZE);
+	send_to_connection(pipe_fd, msg, sizeof(msg));
 }
 
 // .cert -> certificate
@@ -249,9 +298,9 @@ void import_pubkey_operation()
 	get_key_path(req.import_pub.entity_id, keyfile, (uint8_t *)".cert");
 
 	if (write_to_file(keyfile, req.import_pub.public_key, req.import_pub.cert_size) != NULL)
-		resp.status = 0;
-	else
 		resp.status = 1;
+	else
+		resp.status = 0;
 }
 
 void share_key_operation()
@@ -312,6 +361,20 @@ void init()
                 perror("[SERVER] Cannot create pipe: ");
                 exit(-1);
         }
+}
+
+uint8_t waitOK()
+{
+	uint8_t msg[ID_SIZE];
+	receive_from_connection(pipe_fd, msg, ID_SIZE);
+
+	printf ("%s\n", msg);
+
+	if (msg[0] != 'O' || msg[1] != 'K')
+		resp.status = 0;
+	else
+		resp.status = 1;
+	return resp.status;
 }
 
 void display_greeting ()
