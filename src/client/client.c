@@ -96,6 +96,7 @@ uint8_t set_pin()
 		printf ("[CLIENT] Error getting PIN, try again..\n");
 		return 0;
 	}
+	flush_stdin();
 	send_to_connection(pipe_fd, req.admin.pin, PIN_SIZE);
 
 	return waitOK();
@@ -111,6 +112,7 @@ uint8_t authenticate()
 		printf ("[CLIENT] Error getting PIN, try again..\n");
 		return 0;
 	}
+	flush_stdin();
 	send_to_connection(pipe_fd, req.auth.pin, PIN_SIZE);
 
 	receive_from_connection(pipe_fd, &resp.status, sizeof(uint8_t));

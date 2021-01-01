@@ -40,7 +40,7 @@ void concatenate(uint8_t * dest, uint8_t * src, uint32_t start, uint32_t length)
 uint32_t compare_strings(uint8_t * m1, uint8_t * m2, uint32_t length)
 {
 	uint32_t i, different = 0;
-	for (i = 0; i < length && !different && m1[i] != '\0' && m2[i] != '\0'; i++)
+	for (i = 0; i < length && !different; i++)
 		if (m1[i] != m2[i])
 			different = 1;
 	return different;
