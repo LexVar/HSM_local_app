@@ -264,7 +264,7 @@ void authenticate()
 	// get PIN from user
 	receive_from_connection(pipe_fd, req.auth.pin, PIN_SIZE);
 
-	// check PIN
+	// check PIN 
 	authenticated = resp.status = !compare_strings(req.auth.pin, AUTH_PIN, PIN_SIZE);
 
 	if (!authenticated)
