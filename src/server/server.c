@@ -5,9 +5,13 @@ uint32_t pipe_fd;		// pipe file descriptor
 struct request req;		// request structure
 struct response resp;		// response structure
 uint8_t authenticated = 0;	// Flag, 1-authenticated, 0-not authenticated
+// uint8_t nrbg_handler;
 
 int main (void)
 {
+	// Intantiate random number generator
+	// reserve_drbg_service(&nrbg_handler);
+
 	init();
 
 	// load cryptography libraries
