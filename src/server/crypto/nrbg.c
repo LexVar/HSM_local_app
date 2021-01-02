@@ -1,4 +1,9 @@
-#include "nrbg.h"
+#include <inttypes.h>
+#include "drivers/mss_sys_services/mss_sys_services.h"
+#include "drivers/mss_uart/mss_uart.h"
+#include "../../protocol.h"
+
+#define MAX_NB_OF_RANDOM_BYTES      128
 
 //------------------------------------------------------------------------------
 uint8_t release_drbg_service(uint8_t drbg_handle)
@@ -31,7 +36,6 @@ uint8_t reseed_drbg_service(uint8_t drbg_handle)
 
 //------------------------------------------------------------------------------
 //Generate random bit function
-#define MAX_NB_OF_RANDOM_BYTES      128
 uint8_t generate_random_bits(uint8_t drbg_handle, uint8_t nb_of_bytes, uint8_t * random_bytes)
 {
 	uint8_t random_bytes[MAX_NB_OF_RANDOM_BYTES];

@@ -1,27 +1,40 @@
 #include "crypto-hsm.h"
 
+#define AES_BLOCK_SIZE 16
+
+uint8_t drbg_handler;
+
 // Generates new AES key, saves to aes.key file
 // Generate both AES and HMAC key, ence 2*
-void new_key(uint8_t * key_file)
+void new_key(uint8_t * key)
 {
-	FILE *fout;
-	uint8_t key[2*KEY_SIZE];
+	uint8_t nkeys;
+	uint8_t key_data[KEY_SIZE*2];
 
-	if ( !RAND_bytes(key, sizeof(key)) )
-		exit(-1);
+	if (MSS_SYS_puf_get_number_of_keys(&nkeys) != MSS_SYS_SUCCESS)
+		return 0;
 
-	fout = fopen((char *)key_file, "w");
-	if (fout != NULL)
-	{
-		fwrite(key, sizeof(uint8_t), sizeof(key), fout);
-		fclose(fout);
-	}
-	else
-		printf("Error generating key.\n");
+	// Generate random bits
+	if (generate_random_bits(drbg_handler, KEY_SIZE*2, key_data) != MSS_SYS_SUCCESS)
+		return 0;
+
+	if (MSS_SYS_puf_enroll_key(nkeys, KEY_SIZE*2, key_data, key) != MSS_SYS_SUCCESS)
+		return 0;
+
+	if(MSS_SYS_puf_fetch_key(nkeys, &key) != MSS_SYS_SUCCESS)
+		return 0;
+
+	return 1;
 }
 
 void init_crypto_state ()
 {
+	// Intantiate random number generator
+	if (reserve_drbg_service(&drbg_handler) != MSS_SYS_SUCCESS)
+	{
+		printf ("Error instantiating NRBG\n");
+		exit(0);
+	}
 	OpenSSL_add_all_digests();
 	OpenSSL_add_all_algorithms();
 	OpenSSL_add_all_ciphers();
@@ -45,25 +58,6 @@ uint32_t compare_strings(uint8_t * m1, uint8_t * m2, uint32_t length)
 	return different;
 }
 
-// Read key from aes.key file
-uint8_t read_key(uint8_t * key, uint8_t * key_file, uint32_t key_size)
-{
-	FILE *fin;
-
-	fin = fopen((char *)key_file, "r");
-	if (fin != NULL)
-	{
-		fread(key, key_size, 1, fin);
-		fclose(fin);
-		return 1;
-	}
-	else
-	{
-		printf("Error reading key.\n");
-		return 0;
-	}
-}
-
 // Encrypts in buffer of inlen size, with key in key_file. Stores ciphertext in out buffer.
 // in  - input plaintext
 // inlen - plaintext size
@@ -77,41 +71,30 @@ uint32_t encrypt(uint8_t * in, uint32_t inlen, uint8_t * out, uint8_t * key_file
 	uint8_t iv_cipher[DATA_SIZE];
 	uint8_t iv[AES_BLOCK_SIZE];
 	uint8_t key[2*KEY_SIZE];
-	uint32_t size;
-	// uint8_t nrbg_handle;
-	// const uint8_t personalization_str[4] = {0x12, 0x34, 0x56, 0x78};
+	uint32_t size, status;
 
-	// read keys from file
-	if(read_key(key, key_file, 2*KEY_SIZE) == 0)
-		return 0;
+	// read keys from puf
+	MSS_SYS_puf_fetch_key(key_file, &key);
+
 	// set mac key pointer
 	mac_key = &key[KEY_SIZE];
 
 	// Generate random IV
-	// USE NRGB HERE
-	if ( !RAND_bytes(iv, sizeof(iv)) )
-		exit(-1);
-
-	// MSS_SYS_nrbg_instantiate(person, ,nrbg_handle);
-	// status = MSS_SYS_nrbg_instantiate(personalization_str, 0, &nrbg_handle);
-        // if(MSS_SYS_SUCCESS == status)
-        //     MSS_UART_polled_tx_string( gp_my_uart,(const uint8_t*)"\n\rNRBG reserve successful.");
-        //  else
-        //     MSS_UART_polled_tx_string( gp_my_uart,(const uint8_t*)"\n\rNRBG reserve failure.");
-
+	if (generate_random_bits(drbg_handler, AES_BLOCK_SIZE, iv) != MSS_SYS_SUCCESS)
+		return 0;
 
 	/* perform ctr encryption, return cipher/plaintext */
-	size = ctr_encryption(in, inlen, iv, ciphertext, key);
+	size = MSS_SYS_128bit_aes(key, iv, inlen/AES_BLOCK_SIZE, MSS_SYS_CTR_ENCRYPT, ciphertext, in);
 
 	/* Concatenate iv+ciphertet to compute mac */
 	concatenate (iv_cipher, iv, 0, AES_BLOCK_SIZE);
 	concatenate (iv_cipher, ciphertext, AES_BLOCK_SIZE, size);
 
 	/* compute mac from IV+CIPHER/PLAINTEXT */
-	mac = compute_hmac(mac_key, iv_cipher, AES_BLOCK_SIZE+size);
+	status = MSS_SYS_hmac ((const uint8_t *) mac_key, (const uint8_t *) iv_cipher, AES_BLOCK_SIZE+size, mac);
 
 	// concatenate the 3 components for final result
-	if (mac != NULL && size > 0)
+	if (status == MSS_SYS_SUCCESS && size == MSS_SYS_SUCCESS)
 	{
 		/* MAC+IV+MESSAGE to out ptr */
 		concatenate (out, mac, 0, MAC_SIZE);
@@ -145,12 +128,12 @@ uint32_t decrypt(uint8_t * in, uint32_t inlen, uint8_t * out, uint8_t * key_file
 	uint8_t iv[AES_BLOCK_SIZE];
 	uint8_t key[2*KEY_SIZE];
 	uint8_t * mac_key;
-	uint32_t total_bytes = 0;
+	uint32_t total_bytes = 0, status;
 
-	// read key from file
-	if (read_key(key, key_file, 2*KEY_SIZE) == 0)
-		return 0;
+	// read keys from puf
+	MSS_SYS_puf_fetch_key(key_file, &key);
 
+	// set mac key pointer
 	mac_key = &key[KEY_SIZE];
 
 	// Read the MAC
@@ -165,15 +148,18 @@ uint32_t decrypt(uint8_t * in, uint32_t inlen, uint8_t * out, uint8_t * key_file
 	concatenate (iv_cipher, ciphertext, AES_BLOCK_SIZE, total_bytes);
 
 	/* compute mac from IV+CIPHER */
-	computed_mac = compute_hmac(mac_key, iv_cipher, AES_BLOCK_SIZE+total_bytes);
+	status = MSS_SYS_hmac ((const uint8_t *) mac_key, (const uint8_t *) iv_cipher, AES_BLOCK_SIZE+total_bytes, computed_mac);
 
 	/* verify if macs are the same */
-	if (compare_strings(mac, computed_mac, MAC_SIZE) == 0)
+	if (status == MSS_SYS_SUCCESS && compare_strings(mac, computed_mac, MAC_SIZE) == 0)
 	{
 		printf ("MAC successfully verified, proceding to decryption...\n");
 
 		/* perform ctr encryption, return IV+CIPHER/PLAINTEXT */
-		total_bytes = ctr_encryption(ciphertext, total_bytes, iv, plaintext, key);
+		status = MSS_SYS_128bit_aes(key, iv, total_bytes/AES_BLOCK_SIZE, MSS_SYS_CTR_DECRYPT, plaintext, ciphertext);
+
+		if (status != MSS_SYS_SUCCESS)
+			total_bytes = 0;
 
 		// Copy plaintext to out string and add null terminate uint8_t
 		concatenate(out, plaintext, 0, total_bytes);
@@ -189,21 +175,4 @@ uint32_t decrypt(uint8_t * in, uint32_t inlen, uint8_t * out, uint8_t * key_file
 	}
 
 	return total_bytes;
-}
-
-// Compute HMAC with SHA256 hashing, from ciphertext and IV
-// key - key info of KEY_SIZE
-// message - ciphertext+IV
-// size - size of message
-uint8_t * compute_hmac(uint8_t * key, uint8_t * message, uint32_t size)
-{
-	uint8_t * md;
-
-	/* don't change the hash function without changing MAC_SIZE */
-	md = HMAC(EVP_sha256(), key, KEY_SIZE, message, size, NULL, NULL);
-
-	if (md == NULL)
-		printf ("Error computing HMAC...\n");
-
-	return md;
 }
