@@ -8,9 +8,9 @@
 #include <dirent.h>
 #include "../protocol.h"
 #include "../functions.c"
-#include "crypto/sign.h"
-#include "crypto/crypto.h"
-#include "crypto/pubkey.c"
+#include "libs/sign.h"
+#include "libs/crypto.h"
+#include "libs/pubkey.c"
 #include <inttypes.h>
 // #include "pkcs11.h"
 

@@ -6,7 +6,11 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include <inttypes.h>
+#include <tomcrypt.h>
 
+uint8_t init_prng (prng_state *prng);
+uint8_t tom_sha256 (uint8_t *in, uint32_t inlen, uint8_t * out);
+uint8_t tom_sign(uint8_t *key_data, uint32_t key_size, uint8_t *data, uint32_t len, uint8_t * sig, uint64_t *olen, prng_state *prng);
 uint8_t *simple_digest(uint8_t *buf, uint32_t len, uint32_t *olen);
 uint8_t *simple_sign(uint8_t *keypath, uint8_t *data, uint32_t len, uint32_t *olen);
 void *map_file(FILE *fp, size_t len);

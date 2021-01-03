@@ -5,10 +5,12 @@ uint32_t pipe_fd;		// pipe file descriptor
 struct request req;		// request structure
 struct response resp;		// response structure
 uint8_t authenticated = 0;	// Flag, 1-authenticated, 0-not authenticated
+prng_state prng;
 
 int main (void)
 {
 	init();
+	init_prng(&prng);
 
 	// load cryptography libraries
 	init_crypto_state();
@@ -296,7 +298,13 @@ void encrypt_authenticate()
 // Operation 5: sign data
 void sign_operation ()
 {
-	resp.status = sign_data(req.sign.data, req.sign.data_size, (uint8_t *)PRIVATE_KEY, resp.sign.signature);
+	uint8_t key[1000];
+	uint64_t size;
+	uint32_t msg_size = read_from_file ((uint8_t *)PRIVATE_KEY, key);
+	resp.status = tom_sign(key, msg_size, req.sign.data, req.sign.data_size, resp.sign.signature, &size, &prng);
+	printf("sign: %s\n", resp.sign.signature);
+	printf("size: %ld\n", size);
+	// resp.status = sign_data(req.sign.data, req.sign.data_size, (uint8_t *)PRIVATE_KEY, resp.sign.signature);
 	if (resp.status == 0)
 		printf ("[SERVER] Data succesfully signed\n");
 	else

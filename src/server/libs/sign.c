@@ -1,7 +1,91 @@
 #include "sign.h"
 
-// Source: (FOR TESTING ONLY)
-// https://gist.github.com/lattera/5246337
+/**
+  Sign a message digest
+  @param in        The message digest to sign
+  @param inlen     The length of the digest
+  @param out       [out] The destination for the signature
+  @param outlen    [in/out] The max size and resulting size of the signature
+  @param prng      An active PRNG state
+  @param wprng     The index of the PRNG you wish to use
+  @param key       A private ECC key
+  @return CRYPT_OK if successful
+*/
+
+uint8_t init_prng (prng_state * prng)
+{
+	uint8_t err;
+	/* start it */
+	if ((err = yarrow_start(prng)) != CRYPT_OK) {
+		printf("Start error: %s\n", error_to_string(err));
+	}
+	/* add entropy */
+	if ((err = yarrow_add_entropy((uint8_t *)"hello world", 11, prng)) != CRYPT_OK) {
+		printf("Add_entropy error: %s\n", error_to_string(err));
+	}
+	/* ready and read */
+	if ((err = yarrow_ready(prng)) != CRYPT_OK) {
+		printf("Ready error: %s\n", error_to_string(err));
+	}
+	return err;
+}
+
+uint8_t tom_sha256 (uint8_t *in, uint32_t inlen, uint8_t * out)
+{
+	//Initialize a state variable for the hash
+	hash_state md;
+
+	sha256_init(&md);
+	//Process the text - remember you can call process() multiple times
+	sha256_process(&md, (const unsigned char*) in, inlen);
+	//Finish the hash calculation
+	return sha256_done(&md, out);
+}
+
+uint8_t tom_sign(uint8_t *key_data, uint32_t key_size, uint8_t *data, uint32_t len, uint8_t * sig, uint64_t *olen, prng_state *prng)
+{
+	ecc_key key;
+	uint8_t md[256];
+	uint8_t out[4024];
+	uint64_t outlen;
+	uint32_t err;
+
+	err = ecc_import_ex(key_data, key_size, &key, ltc_ecc_sets+6);
+	if (err == CRYPT_OK)
+		printf("Error making key: %s\n", error_to_string(err));
+	else
+		printf("Success:\n");
+
+	/* register SPRNG */
+	if (register_prng(&sprng_desc) == -1) {
+		printf("Error registering SPRNG\n");
+		return -1;
+	}
+	/* make a 192-bit ECC key */
+	if ((err = ecc_make_key(NULL, find_prng("sprng"), 24, &key)) != CRYPT_OK) {
+		printf("Error making key: %s\n", error_to_string(err));
+		return -1;
+	}
+
+
+	printf("hello\n\n\n");
+	// if (ecc_make_key(prng, find_prng("yarrow"), 48, &key) != CRYPT_OK)
+	//         printf("Error making key: \n");
+
+	ecc_export(out, &outlen, PK_PRIVATE, &key);
+	printf("priv:%s\n", out);
+	ecc_export(out, &outlen, PK_PUBLIC, &key);
+	printf("pub:%s\n", out);
+
+	// if(ecc_ansi_x963_import(key_data, key_size, &key) == CRYPT_OK)
+	//         printf("Imported key\n");
+	// else
+	//         printf("Error importing key\n");
+	// hash
+	tom_sha256(data, len, md);
+
+	return ecc_sign_hash(md, 256, sig, olen, prng, find_prng ("yarrow"), &key);
+}
 
 uint8_t *simple_digest(uint8_t *buf, uint32_t len, uint32_t *olen)
 {
