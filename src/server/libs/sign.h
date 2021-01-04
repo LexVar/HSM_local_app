@@ -3,8 +3,8 @@
 
 #include <string.h>
 #include <sys/mman.h>
-#include <openssl/ssl.h>
-#include <openssl/err.h>
+#include "openssl/ssl.h"
+#include "openssl/err.h"
 #include <inttypes.h>
 
 uint8_t *simple_digest(uint8_t *buf, uint32_t len, uint32_t *olen);

@@ -1,19 +1,20 @@
 CLIENT_DIR = ./src/client
 SERVER_DIR = ./src/server
 LIBS_DIR = $(SERVER_DIR)/libs
-# LIBTOMCRYPT = $(LIBS_DIR)/libtomcrypt
+OPENSSL_DIR = $(LIBS_DIR)/openssl
 BIN_DIR = ./bin
 
 # Include all precompiled libtomcrypt object files
-# OBJS := $(shell find $(LIBTOMCRYPT) -name *.o)
+OBJS := $(shell find $(OPENSSL_DIR) -name *.o)
 
 CC = gcc
-CFLAGS = -Wall
+CFLAGS = -Wall -I$(OPENSSL_DIR)/include
 # CFLAGS = -Wall -Wextra -Werror -pedantic
-LIBS =  -lssl -lcrypto
+
+LIBS = -L$(OPENSSL_DIR) -lcrypto -lssl
 
 server: $(SERVER_DIR)/server.c $(LIBS_DIR)/crypto.c $(LIBS_DIR)/sign.c
-	$(CC) $(CFLAGS) $(LIBS) $^ -o $(BIN_DIR)/server
+	$(CC) $(CFLAGS) $(OBJS) $^ -o $(BIN_DIR)/server $(LIBS) 
 
 client: $(CLIENT_DIR)/client.c
 	$(CC) $(CFLAGS) $^ -o $(BIN_DIR)/client
