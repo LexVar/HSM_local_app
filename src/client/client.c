@@ -72,12 +72,6 @@ int main(void)
 				printf ("[CLIENT] Sending logout request\n");
 				waitOK();
 				break;
-			case 11:	// Share key
-				share_key_operation();
-				break;
-			case 12:	// Save key
-				save_key_operation();
-				break;
 			case 0:
 				printf("[CLIENT] Stopping client..\n");
 				exit(0);
@@ -313,82 +307,6 @@ void new_comms_key()
 		printf ("[CLIENT] Key successfully generated and saved with key_id: %s\n", req.gen_key.entity_id);
 	else
 		printf ("[CLIENT] Some error ocurred deriving shared secret\n");
-}
-
-// Operation 11: Generate new key for sharing
-void share_key_operation()
-{
-	printf("Entity's ID (to share key with): ");
-	if (fgets((char *)req.gen_key.entity_id, ID_SIZE, stdin) == NULL)
-	{
-		printf ("[CLIENT] Error getting ID, try again..\n");
-		req.gen_key.entity_id[0] = 0;
-	}
-	// send entity ID
-	send_to_connection(pipe_fd, req.gen_key.entity_id, ID_SIZE);
-	if(!waitOK())
-		return;
-
-	printf("New Key's ID: ");
-	if (fgets((char *)req.gen_key.key_id, ID_SIZE, stdin) == NULL)
-	{
-		printf ("[CLIENT] Error getting ID, try again..\n");
-		req.gen_key.key_id[0] = 0;
-	}
-	// Send key ID
-	send_to_connection(pipe_fd, req.gen_key.key_id, ID_SIZE);
-	if(!waitOK())
-		return;
-
-	receive_from_connection(pipe_fd, &resp.status, sizeof(uint8_t));
-	sendOK((uint8_t *)"OK");
-	if (resp.status == 0)
-		return;
-
-	// Receives key
-	receive_from_connection(pipe_fd, resp.gen_key.msg, CIPHER_SIZE+SIGNATURE_SIZE);
-	sendOK((uint8_t *)"OK");
-
-	printf ("[CLIENT] Generated encrypted key (\"new_key.enc\"): \n%s\n", resp.gen_key.msg);
-	write_to_file ((uint8_t *)"key.enc", resp.gen_key.msg, CIPHER_SIZE+SIGNATURE_SIZE);
-}
-// Operation 12: Save generated key from other entity
-void save_key_operation()
-{
-	printf("Sender entity's ID: ");
-	if (fgets((char *)req.save_key.entity_id, ID_SIZE, stdin) == NULL)
-	{
-		printf ("[CLIENT] Error getting ID, try again..\n");
-		req.save_key.entity_id[0] = 0;
-	}
-	// Send entity id
-	send_to_connection(pipe_fd, req.save_key.entity_id, ID_SIZE);
-	if(!waitOK())
-		return;
-
-	printf("New Key's ID: ");
-	if (fgets((char *)req.save_key.key_id, ID_SIZE, stdin) == NULL)
-	{
-		printf ("[CLIENT] Error getting ID, try again..\n");
-		req.save_key.key_id[0] = 0;
-	}
-	// Send key size
-	send_to_connection(pipe_fd, req.save_key.key_id, ID_SIZE);
-	if(!waitOK())
-		return;
-
-	printf("Message (encrypted key): ");
-	if (get_attribute_from_file(req.save_key.msg) == 0)
-		printf ("Some error\n");
-	// Send message
-	send_to_connection(pipe_fd, req.save_key.msg, CIPHER_SIZE+SIGNATURE_SIZE);
-
-	receive_from_connection(pipe_fd, &resp.status, sizeof(uint8_t));
-
-	if (resp.status != 0)
-		printf ("[CLIENT] Saved new symmetric key\n");
-	else
-		printf ("[CLIENT] Some error ocurred\n");
 }
 
 uint32_t get_attribute_from_file (uint8_t * attribute)

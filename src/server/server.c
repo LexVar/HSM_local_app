@@ -159,49 +159,6 @@ int main (void)
 				waitOK();
 
 				break;
-			case 11: // Share key
-				// Get entity ID, to share key with
-				receive_from_connection(pipe_fd, req.gen_key.entity_id, ID_SIZE);
-				// Check if entity ID is empty
-				if (send_status(req.gen_key.entity_id[0]) == 0)
-					continue;
-				// Get key ID, will be generated
-				receive_from_connection(pipe_fd, req.gen_key.key_id, ID_SIZE);
-				// Check if key ID is empty
-				if (send_status(req.gen_key.key_id[0]) == 0)
-					continue;
-				// Generate key and secure it
-				share_key_operation();
-
-				// Send op status
-				send_to_connection(pipe_fd, &resp.status, sizeof(uint8_t));
-				waitOK();
-				if (resp.status == 0)
-					continue;
-
-				// if op succeded, send key back
-				send_to_connection(pipe_fd, resp.gen_key.msg, CIPHER_SIZE+SIGNATURE_SIZE);
-				waitOK();
-				break;
-			case 12: // Save key
-				// Get entity ID who generated key
-				receive_from_connection(pipe_fd, req.save_key.entity_id, ID_SIZE);
-				// check if entity ID is empty
-				if (send_status(req.save_key.entity_id[0]) == 0)
-					continue;
-				// Get generated key ID
-				receive_from_connection(pipe_fd, req.save_key.key_id, ID_SIZE);
-				// check if key ID is empty
-				if (send_status(req.save_key.key_id[0]) == 0)
-					continue;
-				// Get key data
-				receive_from_connection(pipe_fd, req.save_key.msg, CIPHER_SIZE+SIGNATURE_SIZE);
-				// Save key in HSM
-				save_key_operation();
-
-				// Send op status back
-				send_to_connection(pipe_fd, &resp.status, sizeof(uint8_t));
-				break;
 			case 9: // List avaiable secure comm keys
 				get_list_comm_keys (resp.list.list);
 
@@ -420,10 +377,6 @@ void display_greeting ()
 9. List comm keys\n\
 10. Logout\n\
 0. Quit\n\
----------------------\n\
----------------------\n\
-11. Share key\n\
-12. Save key\n\
 --------------------\n\n\
 Operation: ";
 	send_to_connection(pipe_fd, greeting, sizeof(greeting));
@@ -445,62 +398,4 @@ void print_chars (uint8_t * data, uint32_t data_size)
 	for (i = 0; i < data_size; i++)
 		printf("%c", data[i]);
 	printf("\n");
-}
-/*
- * -------------------------------------------------------------------
- * ---------------------DEPRECATED - RSA STUFF-----------------------
- * -------------------------------------------------------------------
- */
-
-// Operation 11: Generate new key for sharing
-void share_key_operation()
-{
-	uint8_t keyfile[ID_SIZE];
-	uint8_t key[CIPHER_SIZE];
-	uint8_t signature[SIGNATURE_SIZE];
-	size_t msg_size;
-
-	// Generate new symmetric key
-	get_key_path(req.gen_key.key_id, keyfile, (uint8_t *)".key");
-
-	// Generate new key
-	new_key(keyfile);
-	// Read key from file
-	msg_size = read_from_file (keyfile, key);
-
-	// Sign key with HSM private key
-	resp.status = sign_data(key, 2*KEY_SIZE, (uint8_t *)PRIVATE_KEY_RSA, signature);
-	if (resp.status >= 0)
-	{
-		// Receiver Entities certificate path
-		get_key_path(req.gen_key.entity_id, keyfile, (uint8_t *)".cert");
-		// Encrypt with recipient's public key
-		resp.status = pub_encrypt (keyfile, key, 2*KEY_SIZE, resp.gen_key.msg, &msg_size);
-		// Concatenate signature and encrypted key
-		concatenate(resp.gen_key.msg, signature, CIPHER_SIZE, SIGNATURE_SIZE);
-	}
-}
-
-// Operation 12: Save generated key from other entity
-void save_key_operation()
-{
-	uint8_t keyfile[ID_SIZE];
-	uint8_t key[CIPHER_SIZE];
-	size_t msg_size;
-
-	// Decrypt key with private key
-	resp.status = private_decrypt ((uint8_t *)PRIVATE_KEY_RSA, req.save_key.msg, CIPHER_SIZE, key, &msg_size);
-	if (resp.status > 0)
-	{
-		get_key_path(req.save_key.entity_id, keyfile, (uint8_t *)".cert");
-		// Verify signature with public key of sender's entity 
-		resp.status = verify_data(key, 2*KEY_SIZE, keyfile, &(req.save_key.msg[CIPHER_SIZE]), SIGNATURE_SIZE);
-
-		// save key in HSM storage, if successfull
-		if (resp.status != 0)
-		{
-			get_key_path(req.save_key.key_id, keyfile, (uint8_t *)".key");
-			write_to_file (keyfile, key, 2*KEY_SIZE);
-		}
-	}
 }

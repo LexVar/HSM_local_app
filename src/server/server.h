@@ -30,8 +30,6 @@ void sign_operation();
 void verify_operation();
 void import_pubkey_operation();
 void new_comms_key ();
-void share_key_operation();
-void save_key_operation();
 void init();
 void display_greeting ();
 void cleanup();
