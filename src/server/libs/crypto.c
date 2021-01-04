@@ -1,26 +1,6 @@
 #include "crypto.h"
 #include "aes/aes_ctr.c"
 
-// Generates new AES key, saves to aes.key file
-// Generate both AES and HMAC key, ence 2*
-void new_key(uint8_t * key_file)
-{
-	FILE *fout;
-	uint8_t key[2*KEY_SIZE];
-
-	if ( !RAND_bytes(key, sizeof(key)) )
-		exit(-1);
-
-	fout = fopen((char *)key_file, "w");
-	if (fout != NULL)
-	{
-		fwrite(key, sizeof(uint8_t), sizeof(key), fout);
-		fclose(fout);
-	}
-	else
-		printf("Error generating key.\n");
-}
-
 uint8_t simpleSHA256(void * input, uint64_t length, uint8_t * md)
 {
 	SHA256_CTX context;

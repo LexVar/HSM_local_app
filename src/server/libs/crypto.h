@@ -18,7 +18,6 @@ typedef struct
 	uint8_t ecount_buf[AES_BLOCK_SIZE];
 } ctr_state;
 
-void new_key(uint8_t * key_file);
 void init_crypto_state ();
 uint8_t simpleSHA256(void * input, uint64_t length, uint8_t * md);
 void concatenate(uint8_t * dest, uint8_t * src, uint32_t start, uint32_t length);

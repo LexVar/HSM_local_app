@@ -10,9 +10,8 @@
 #include "../functions.c"
 #include "libs/sign.h"
 #include "libs/crypto.h"
-#include "libs/pubkey.c"
+#include "libs/ecdh.c"
 #include <inttypes.h>
-// #include "pkcs11.h"
 
 #define PRIVATE_KEY "keys/alice.pem"
 #define PRIVATE_KEY_RSA "keys/test.pem"
