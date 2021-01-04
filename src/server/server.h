@@ -14,7 +14,7 @@
 #include <inttypes.h>
 // #include "pkcs11.h"
 
-#define PRIVATE_KEY "keys/ecc.pem"
+#define PRIVATE_KEY "keys/alice.pem"
 #define PRIVATE_KEY_RSA "keys/test.pem"
 
 uint8_t send_status(uint8_t status);

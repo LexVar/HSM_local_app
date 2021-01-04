@@ -302,7 +302,6 @@ void new_comms_key()
 		printf ("[CLIENT] Error getting ID, try again..\n");
 		req.gen_key.entity_id[0] = 0;
 	}
-	req.gen_key.entity_id[strlen((char *)req.gen_key.entity_id)-1] = 0;
 	// send entity ID
 	send_to_connection(pipe_fd, req.gen_key.entity_id, ID_SIZE);
 	if(!waitOK())
@@ -311,7 +310,9 @@ void new_comms_key()
 	receive_from_connection(pipe_fd, &resp.status, sizeof(uint8_t));
 	sendOK((uint8_t *)"OK");
 	if (resp.status == 0)
-		printf ("[CLIENT] Key successfully generated and saved with key_id: %s\n", resp.gen_key.key_id);
+		printf ("[CLIENT] Key successfully generated and saved with key_id: %s\n", req.gen_key.entity_id);
+	else
+		printf ("[CLIENT] Some error ocurred deriving shared secret\n");
 }
 
 // Operation 11: Generate new key for sharing

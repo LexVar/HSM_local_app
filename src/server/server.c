@@ -245,7 +245,11 @@ void sendOK(uint8_t * msg)
 // .key  -> private/symmetric key
 void get_key_path (uint8_t * entity, uint8_t * key_path, uint8_t * extension)
 {
-	entity[strlen((char *)entity)] = 0;
+	uint8_t c = strlen((char *)entity)-1;
+	// Remove newline from end of string
+	if (entity[c] == '\n')
+		entity[c] = '\0';
+
 	snprintf((char*)key_path, ID_SIZE, "keys/%s%s", entity, extension);
 }
 
@@ -352,25 +356,24 @@ void new_comms_key ()
 	uint8_t * secret;
 	uint8_t keyfile[ID_SIZE];
 
-	printf("d:%d\n",strlen((char *)req.gen_key.entity_id));
 	get_key_path(req.gen_key.entity_id, keyfile, (uint8_t *)".cert");
-	printf("keyfile:%s\n",keyfile);
 
 	secret = ecdh((uint8_t *)PRIVATE_KEY, keyfile, &len);
 
 	if (secret == NULL)
+	{
+		resp.status = 1;
 		return;
+	}
 
-	printf("keyfile:%s\n",req.gen_key.entity_id);
-	printf("d:%d\n",strlen((char *)req.gen_key.entity_id));
 	// Key derivation function from secret
 	resp.status = simpleSHA256(secret, len, key);
 
 	free(secret);
+	// If key was successfully derived, store it
 	if (resp.status == 0)
 	{
 		get_key_path(req.gen_key.entity_id, keyfile, (uint8_t *)".key");
-		printf("keyfile:%s\n",keyfile);
 		write_to_file (keyfile, key, HASH_SIZE);
 	}
 }
@@ -443,6 +446,11 @@ void print_chars (uint8_t * data, uint32_t data_size)
 		printf("%c", data[i]);
 	printf("\n");
 }
+/*
+ * -------------------------------------------------------------------
+ * ---------------------DEPRECATED - RSA STUFF-----------------------
+ * -------------------------------------------------------------------
+ */
 
 // Operation 11: Generate new key for sharing
 void share_key_operation()
