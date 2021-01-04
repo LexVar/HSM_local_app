@@ -58,22 +58,25 @@ int main(void)
 			case 7:	// Import public key
 				import_pubkey_operation();
 				break;
-			case 8:	// Share key
-				share_key_operation();
+			case 8: // New communications key
+				new_comms_key();
 				break;
-			case 9:	// Save key
-				save_key_operation();
-				break;
-			case 10: // Get available symmetric key list
+			case 9: // Get available symmetric key list
 				receive_from_connection(pipe_fd, resp.list.list,DATA_SIZE);
 				sendOK((uint8_t *)"OK");
 
 				printf ("List of keys:\n");
 				printf("%s", resp.list.list);
 				break;
-			case 11: // Logout request
+			case 10: // Logout request
 				printf ("[CLIENT] Sending logout request\n");
 				waitOK();
+				break;
+			case 11:	// Share key
+				share_key_operation();
+				break;
+			case 12:	// Save key
+				save_key_operation();
 				break;
 			case 0:
 				printf("[CLIENT] Stopping client..\n");
@@ -289,7 +292,29 @@ void import_pubkey_operation()
 	if (resp.status != 0)
 		printf ("[CLIENT] Public key successfully saved\n");
 }
+
 // Operation 8: Generate new key for sharing
+void new_comms_key()
+{
+	printf("Entity's ID (to share key with): ");
+	if (fgets((char *)req.gen_key.entity_id, ID_SIZE, stdin) == NULL)
+	{
+		printf ("[CLIENT] Error getting ID, try again..\n");
+		req.gen_key.entity_id[0] = 0;
+	}
+	req.gen_key.entity_id[strlen((char *)req.gen_key.entity_id)-1] = 0;
+	// send entity ID
+	send_to_connection(pipe_fd, req.gen_key.entity_id, ID_SIZE);
+	if(!waitOK())
+		return;
+
+	receive_from_connection(pipe_fd, &resp.status, sizeof(uint8_t));
+	sendOK((uint8_t *)"OK");
+	if (resp.status == 0)
+		printf ("[CLIENT] Key successfully generated and saved with key_id: %s\n", resp.gen_key.key_id);
+}
+
+// Operation 11: Generate new key for sharing
 void share_key_operation()
 {
 	printf("Entity's ID (to share key with): ");
@@ -326,7 +351,7 @@ void share_key_operation()
 	printf ("[CLIENT] Generated encrypted key (\"new_key.enc\"): \n%s\n", resp.gen_key.msg);
 	write_to_file ((uint8_t *)"key.enc", resp.gen_key.msg, CIPHER_SIZE+SIGNATURE_SIZE);
 }
-// Operation 9: Save generated key from other entity
+// Operation 12: Save generated key from other entity
 void save_key_operation()
 {
 	printf("Sender entity's ID: ");

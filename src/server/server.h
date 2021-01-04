@@ -14,7 +14,8 @@
 #include <inttypes.h>
 // #include "pkcs11.h"
 
-#define PRIVATE_KEY "keys/test.pem"
+#define PRIVATE_KEY "keys/ecc.pem"
+#define PRIVATE_KEY_RSA "keys/test.pem"
 
 uint8_t send_status(uint8_t status);
 uint8_t waitOK();
@@ -28,6 +29,7 @@ void encrypt_authenticate();
 void sign_operation();
 void verify_operation();
 void import_pubkey_operation();
+void new_comms_key ();
 void share_key_operation();
 void save_key_operation();
 void init();

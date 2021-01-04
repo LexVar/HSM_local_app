@@ -5,12 +5,10 @@ uint32_t pipe_fd;		// pipe file descriptor
 struct request req;		// request structure
 struct response resp;		// response structure
 uint8_t authenticated = 0;	// Flag, 1-authenticated, 0-not authenticated
-prng_state prng;
 
 int main (void)
 {
 	init();
-	init_prng(&prng);
 
 	// load cryptography libraries
 	init_crypto_state();
@@ -147,7 +145,21 @@ int main (void)
 				send_to_connection(pipe_fd, &resp.status, sizeof(uint8_t));
 				waitOK();
 				break;
-			case 8: // Share key
+			case 8:
+				// Get key ID, will be generated
+				receive_from_connection(pipe_fd, req.gen_key.entity_id, ID_SIZE);
+				// Check if key ID is empty
+				if (send_status(req.gen_key.entity_id[0]) == 0)
+					continue;
+
+				new_comms_key();
+
+				// Send op status
+				send_to_connection(pipe_fd, &resp.status, sizeof(uint8_t));
+				waitOK();
+
+				break;
+			case 11: // Share key
 				// Get entity ID, to share key with
 				receive_from_connection(pipe_fd, req.gen_key.entity_id, ID_SIZE);
 				// Check if entity ID is empty
@@ -171,7 +183,7 @@ int main (void)
 				send_to_connection(pipe_fd, resp.gen_key.msg, CIPHER_SIZE+SIGNATURE_SIZE);
 				waitOK();
 				break;
-			case 9: // Save key
+			case 12: // Save key
 				// Get entity ID who generated key
 				receive_from_connection(pipe_fd, req.save_key.entity_id, ID_SIZE);
 				// check if entity ID is empty
@@ -190,14 +202,14 @@ int main (void)
 				// Send op status back
 				send_to_connection(pipe_fd, &resp.status, sizeof(uint8_t));
 				break;
-			case 10: // List avaiable secure comm keys
+			case 9: // List avaiable secure comm keys
 				get_list_comm_keys (resp.list.list);
 
 				// Send list of available keys
 				send_to_connection(pipe_fd, resp.list.list, DATA_SIZE);
 				waitOK();
 				break;
-			case 11:
+			case 10:
 				// mark user as logged out
 				authenticated = 0;
 				sendOK((uint8_t *)"OK");
@@ -233,8 +245,8 @@ void sendOK(uint8_t * msg)
 // .key  -> private/symmetric key
 void get_key_path (uint8_t * entity, uint8_t * key_path, uint8_t * extension)
 {
-	entity[strlen((char *)entity)-1] = 0;
-	snprintf((char*)key_path, ID_SIZE, "%s%s%s", "keys/", entity, extension);
+	entity[strlen((char *)entity)] = 0;
+	snprintf((char*)key_path, ID_SIZE, "keys/%s%s", entity, extension);
 }
 
 // Get it from: MSS_SYS_puf_get_number_of_keys()
@@ -298,13 +310,7 @@ void encrypt_authenticate()
 // Operation 5: sign data
 void sign_operation ()
 {
-	uint8_t key[1000];
-	uint64_t size;
-	uint32_t msg_size = read_from_file ((uint8_t *)PRIVATE_KEY, key);
-	resp.status = tom_sign(key, msg_size, req.sign.data, req.sign.data_size, resp.sign.signature, &size, &prng);
-	printf("sign: %s\n", resp.sign.signature);
-	printf("size: %ld\n", size);
-	// resp.status = sign_data(req.sign.data, req.sign.data_size, (uint8_t *)PRIVATE_KEY, resp.sign.signature);
+	resp.status = sign_data(req.sign.data, req.sign.data_size, (uint8_t *)PRIVATE_KEY, resp.sign.signature);
 	if (resp.status == 0)
 		printf ("[SERVER] Data succesfully signed\n");
 	else
@@ -338,56 +344,34 @@ void import_pubkey_operation()
 		resp.status = 0;
 }
 
-// Operation 8: Generate new key for sharing
-void share_key_operation()
+// Operation 8: Generate new key from private key, and an entities public key
+void new_comms_key ()
 {
+	uint8_t key[HASH_SIZE];
+	size_t len;
+	uint8_t * secret;
 	uint8_t keyfile[ID_SIZE];
-	uint8_t key[CIPHER_SIZE];
-	uint8_t signature[SIGNATURE_SIZE];
-	size_t msg_size;
 
-	// Generate new symmetric key
-	get_key_path(req.gen_key.key_id, keyfile, (uint8_t *)".key");
+	printf("d:%d\n",strlen((char *)req.gen_key.entity_id));
+	get_key_path(req.gen_key.entity_id, keyfile, (uint8_t *)".cert");
+	printf("keyfile:%s\n",keyfile);
 
-	// Generate new key
-	new_key(keyfile);
-	// Read key from file
-	msg_size = read_from_file (keyfile, key);
+	secret = ecdh((uint8_t *)PRIVATE_KEY, keyfile, &len);
 
-	// Sign key with HSM private key
-	resp.status = sign_data(key, 2*KEY_SIZE, (uint8_t *)PRIVATE_KEY, signature);
-	if (resp.status >= 0)
+	if (secret == NULL)
+		return;
+
+	printf("keyfile:%s\n",req.gen_key.entity_id);
+	printf("d:%d\n",strlen((char *)req.gen_key.entity_id));
+	// Key derivation function from secret
+	resp.status = simpleSHA256(secret, len, key);
+
+	free(secret);
+	if (resp.status == 0)
 	{
-		// Receiver Entities certificate path
-		get_key_path(req.gen_key.entity_id, keyfile, (uint8_t *)".cert");
-		// Encrypt with recipient's public key
-		resp.status = pub_encrypt (keyfile, key, 2*KEY_SIZE, resp.gen_key.msg, &msg_size);
-		// Concatenate signature and encrypted key
-		concatenate(resp.gen_key.msg, signature, CIPHER_SIZE, SIGNATURE_SIZE);
-	}
-}
-
-// Operation 9: Save generated key from other entity
-void save_key_operation()
-{
-	uint8_t keyfile[ID_SIZE];
-	uint8_t key[CIPHER_SIZE];
-	size_t msg_size;
-
-	// Decrypt key with private key
-	resp.status = private_decrypt ((uint8_t *)PRIVATE_KEY, req.save_key.msg, CIPHER_SIZE, key, &msg_size);
-	if (resp.status > 0)
-	{
-		get_key_path(req.save_key.entity_id, keyfile, (uint8_t *)".cert");
-		// Verify signature with public key of sender's entity 
-		resp.status = verify_data(key, 2*KEY_SIZE, keyfile, &(req.save_key.msg[CIPHER_SIZE]), SIGNATURE_SIZE);
-
-		// save key in HSM storage, if successfull
-		if (resp.status != 0)
-		{
-			get_key_path(req.save_key.key_id, keyfile, (uint8_t *)".key");
-			write_to_file (keyfile, key, 2*KEY_SIZE);
-		}
+		get_key_path(req.gen_key.entity_id, keyfile, (uint8_t *)".key");
+		printf("keyfile:%s\n",keyfile);
+		write_to_file (keyfile, key, HASH_SIZE);
 	}
 }
 
@@ -429,11 +413,14 @@ void display_greeting ()
 5. Sign message\n\
 6. Verify signature\n\
 7. Import public key\n\
-8. Share key\n\
-9. Save key\n\
-10. List comm keys\n\
-11. Logout\n\
+8. New comms key\n\
+9. List comm keys\n\
+10. Logout\n\
 0. Quit\n\
+---------------------\n\
+---------------------\n\
+11. Share key\n\
+12. Save key\n\
 --------------------\n\n\
 Operation: ";
 	send_to_connection(pipe_fd, greeting, sizeof(greeting));
@@ -455,4 +442,57 @@ void print_chars (uint8_t * data, uint32_t data_size)
 	for (i = 0; i < data_size; i++)
 		printf("%c", data[i]);
 	printf("\n");
+}
+
+// Operation 11: Generate new key for sharing
+void share_key_operation()
+{
+	uint8_t keyfile[ID_SIZE];
+	uint8_t key[CIPHER_SIZE];
+	uint8_t signature[SIGNATURE_SIZE];
+	size_t msg_size;
+
+	// Generate new symmetric key
+	get_key_path(req.gen_key.key_id, keyfile, (uint8_t *)".key");
+
+	// Generate new key
+	new_key(keyfile);
+	// Read key from file
+	msg_size = read_from_file (keyfile, key);
+
+	// Sign key with HSM private key
+	resp.status = sign_data(key, 2*KEY_SIZE, (uint8_t *)PRIVATE_KEY_RSA, signature);
+	if (resp.status >= 0)
+	{
+		// Receiver Entities certificate path
+		get_key_path(req.gen_key.entity_id, keyfile, (uint8_t *)".cert");
+		// Encrypt with recipient's public key
+		resp.status = pub_encrypt (keyfile, key, 2*KEY_SIZE, resp.gen_key.msg, &msg_size);
+		// Concatenate signature and encrypted key
+		concatenate(resp.gen_key.msg, signature, CIPHER_SIZE, SIGNATURE_SIZE);
+	}
+}
+
+// Operation 12: Save generated key from other entity
+void save_key_operation()
+{
+	uint8_t keyfile[ID_SIZE];
+	uint8_t key[CIPHER_SIZE];
+	size_t msg_size;
+
+	// Decrypt key with private key
+	resp.status = private_decrypt ((uint8_t *)PRIVATE_KEY_RSA, req.save_key.msg, CIPHER_SIZE, key, &msg_size);
+	if (resp.status > 0)
+	{
+		get_key_path(req.save_key.entity_id, keyfile, (uint8_t *)".cert");
+		// Verify signature with public key of sender's entity 
+		resp.status = verify_data(key, 2*KEY_SIZE, keyfile, &(req.save_key.msg[CIPHER_SIZE]), SIGNATURE_SIZE);
+
+		// save key in HSM storage, if successfull
+		if (resp.status != 0)
+		{
+			get_key_path(req.save_key.key_id, keyfile, (uint8_t *)".key");
+			write_to_file (keyfile, key, 2*KEY_SIZE);
+		}
+	}
 }

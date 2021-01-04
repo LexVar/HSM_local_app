@@ -20,7 +20,7 @@ typedef struct
 
 void new_key(uint8_t * key_file);
 void init_crypto_state ();
-uint32_t simpleSHA256(void * input, unsigned long length, uint8_t * md);
+uint8_t simpleSHA256(void * input, uint64_t length, uint8_t * md);
 void concatenate(uint8_t * dest, uint8_t * src, uint32_t start, uint32_t length);
 uint32_t compare_strings(uint8_t * m1, uint8_t * m2, uint32_t length);
 uint8_t read_key(uint8_t * key, uint8_t * key_file, uint32_t key_size);
