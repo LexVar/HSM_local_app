@@ -388,6 +388,7 @@ void cleanup()
 	printf ("\n[SERVER] Shutting down...\n");
 
 	/* place all cleanup operations here */
+	// release_drbg_service(drbg_handle);
 	close(pipe_fd);
 	exit(0);
 }
