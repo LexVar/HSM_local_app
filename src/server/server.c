@@ -1,10 +1,10 @@
 #include "server.h"
 
 uint8_t AUTH_PIN[PIN_SIZE];
-uint32_t pipe_fd;		// pipe file descriptor
 struct request req;		// request structure
 struct response resp;		// response structure
 uint8_t authenticated = 0;	// Flag, 1-authenticated, 0-not authenticated
+uint32_t pipe_fd;	// Pipe descriptor
 
 int main (void)
 {
@@ -26,11 +26,11 @@ int main (void)
 		// Check authentication
 		if (req.op_code > 1 && !authenticated)
 		{
-			sendOK((uint8_t *)"NO"); // Not authenticated
+			sendOK(pipe_fd, (uint8_t *)"NO"); // Not authenticated
 			continue;
 		}
 		else
-			sendOK((uint8_t *)"OK"); // Authenticated
+			sendOK(pipe_fd, (uint8_t *)"OK"); // Authenticated
 
 		/* --------------------------------------------------- */
 		/* Perform operation */
@@ -40,102 +40,110 @@ int main (void)
 				authenticate();
 				break;
 			case 2: // Change PIN
-				// Get new PIN
+				// authenticate old PIN
+				receive_from_connection(pipe_fd, req.auth.pin, PIN_SIZE);
+
+				resp.status = compare_strings(req.auth.pin, AUTH_PIN, PIN_SIZE);
+				// if it was not authenticated for change, return
+				if (send_status(pipe_fd, resp.status) == 0)
+					continue;
+
+				// Get new PIN and change it
 				receive_from_connection(pipe_fd, req.admin.pin, PIN_SIZE);
 				memcpy(AUTH_PIN, req.admin.pin, PIN_SIZE); // Save PIN
-				sendOK((uint8_t *)"OK");
+				sendOK(pipe_fd, (uint8_t *)"OK");
 				break;
 			case 3: // Encrypt + authenticate data
 			case 4: // Decrypt + authenticate data
 				// Get data size
 				receive_from_connection(pipe_fd, &req.data.data_size, sizeof(uint16_t));
 				// Check if size is 0
-				if (send_status(req.data.data_size) == 0)
+				if (send_status(pipe_fd, req.data.data_size) == 0)
 					continue;
 
 				// Get data
 				receive_from_connection(pipe_fd, req.data.data, req.data.data_size);
-				sendOK((uint8_t *)"OK");
+				sendOK(pipe_fd, (uint8_t *)"OK");
 
 				// Get key ID
 				receive_from_connection(pipe_fd, req.data.key_id, ID_SIZE);
-				sendOK((uint8_t *)"OK");
+				sendOK(pipe_fd, (uint8_t *)"OK");
 
 				encrypt_authenticate();
 
 				// Send data result size
 				send_to_connection(pipe_fd, &resp.data.data_size, sizeof(uint16_t));
-				waitOK();
+				waitOK(pipe_fd);
 				// Send data
 				send_to_connection(pipe_fd, resp.data.data, resp.data.data_size);
-				waitOK();
+				waitOK(pipe_fd);
 				break;
 			case 5: // Encrypt(sign) with private key
 				// Get data size
 				receive_from_connection(pipe_fd, &req.sign.data_size, sizeof(uint16_t));
 				// Check if size is 0
-				if (send_status(req.sign.data_size) == 0)
+				if (send_status(pipe_fd, req.sign.data_size) == 0)
 					continue;
 
 				// Get data
 				receive_from_connection(pipe_fd, req.sign.data, req.sign.data_size);
-				sendOK((uint8_t *)"OK");
+				sendOK(pipe_fd, (uint8_t *)"OK");
 
 				sign_operation(); // Sign with private key
 
 				// Send op status
 				send_to_connection(pipe_fd, &resp.status, sizeof(uint8_t));
-				waitOK();
+				waitOK(pipe_fd);
 
 				if (resp.status == 0)
 					continue;
 				// if status is good, send signature
 				send_to_connection(pipe_fd, resp.sign.signature, SIGNATURE_SIZE);
-				waitOK();
+				waitOK(pipe_fd);
 				break;
 			case 6: // Verify signature
 				// Get data size
 				receive_from_connection(pipe_fd, &req.verify.data_size, sizeof(uint16_t));
 				// Check if size is 0
-				if (send_status(req.verify.data_size) == 0)
+				if (send_status(pipe_fd, req.verify.data_size) == 0)
 					continue;
 
 				// Get data
 				receive_from_connection(pipe_fd, req.verify.data, req.verify.data_size);
-				sendOK((uint8_t *)"OK");
+				sendOK(pipe_fd, (uint8_t *)"OK");
 
 				// Get signature
 				receive_from_connection(pipe_fd, req.verify.signature, SIGNATURE_SIZE);
-				sendOK((uint8_t *)"OK");
+				sendOK(pipe_fd, (uint8_t *)"OK");
 
 				// Get entity ID who signed the data
 				receive_from_connection(pipe_fd, req.verify.entity_id, ID_SIZE);
 				// Check if entity ID is empty
-				if (send_status(req.verify.entity_id[0]) == 0)
+				if (send_status(pipe_fd, req.verify.entity_id[0]) == 0)
 					continue;
 
 				verify_operation(); // verifies signature
 
 				// Send op status
 				send_to_connection(pipe_fd, &resp.status, sizeof(uint8_t));
-				waitOK();
+				waitOK(pipe_fd);
 				break;
 			case 7: // Import public key
 				// Get entity ID
 				receive_from_connection(pipe_fd, req.import_pub.entity_id, ID_SIZE);
 				// Check if entity ID is empty
-				if (send_status(req.import_pub.entity_id[0]) == 0)
+				if (send_status(pipe_fd, req.import_pub.entity_id[0]) == 0)
 					continue;
 				// get certificate size
 				receive_from_connection(pipe_fd, &req.import_pub.cert_size, sizeof(uint16_t));
 				// Check if certificate size is 0
-				if (send_status(req.import_pub.cert_size) == 0)
+				if (send_status(pipe_fd, req.import_pub.cert_size) == 0)
 					continue;
 
 				// get certificate data
 				receive_from_connection(pipe_fd, req.import_pub.public_key, req.import_pub.cert_size);
 				// Check if certificate is empty
-				if (send_status(req.import_pub.public_key[0]) == 0)
+				if (send_status(pipe_fd, req.import_pub.public_key[0]) == 0)
 					continue;
 
 				// Save certificate in HSM
@@ -143,20 +151,20 @@ int main (void)
 
 				// Send op status
 				send_to_connection(pipe_fd, &resp.status, sizeof(uint8_t));
-				waitOK();
+				waitOK(pipe_fd);
 				break;
 			case 8:
 				// Get key ID, will be generated
 				receive_from_connection(pipe_fd, req.gen_key.entity_id, ID_SIZE);
 				// Check if key ID is empty
-				if (send_status(req.gen_key.entity_id[0]) == 0)
+				if (send_status(pipe_fd, req.gen_key.entity_id[0]) == 0)
 					continue;
 
 				new_comms_key();
 
 				// Send op status
 				send_to_connection(pipe_fd, &resp.status, sizeof(uint8_t));
-				waitOK();
+				waitOK(pipe_fd);
 
 				break;
 			case 9: // List avaiable secure comm keys
@@ -164,38 +172,24 @@ int main (void)
 
 				// Send list of available keys
 				send_to_connection(pipe_fd, resp.list.list, DATA_SIZE);
-				waitOK();
+				waitOK(pipe_fd);
 				break;
 			case 10:
 				// mark user as logged out
 				authenticated = 0;
-				sendOK((uint8_t *)"OK");
+				sendOK(pipe_fd, (uint8_t *)"OK");
 				printf("[SERVER] User logged out..\n");
 				break;
 			case 0:
 				break;
 			default:
-				sendOK((uint8_t *)"NO");
+				sendOK(pipe_fd, (uint8_t *)"NO");
 				printf("Wrong choice, try again\n");
 		}
 		printf("\n[SERVER] Finished Op. %d\n", req.op_code);
 	}
 
 	return 0;
-}
-
-uint8_t send_status(uint8_t status)
-{
-	if (status == 0)
-		send_to_connection(pipe_fd, (uint8_t *)"NO", sizeof("NO"));
-	else
-		send_to_connection(pipe_fd, (uint8_t *)"OK", sizeof("OK"));
-	return status;
-}
-
-void sendOK(uint8_t * msg)
-{
-	send_to_connection(pipe_fd, msg, sizeof(msg));
 }
 
 // .cert -> certificate
@@ -349,20 +343,6 @@ void init()
         }
 }
 
-uint8_t waitOK()
-{
-	uint8_t msg[ID_SIZE];
-	receive_from_connection(pipe_fd, msg, ID_SIZE);
-
-	printf ("%s\n", msg);
-
-	if (msg[0] != 'O' || msg[1] != 'K')
-		resp.status = 0;
-	else
-		resp.status = 1;
-	return resp.status;
-}
-
 void display_greeting ()
 {
 	uint8_t greeting [] ="\n--CLIENT OPERATIONS--\n\
@@ -391,12 +371,4 @@ void cleanup()
 	// release_drbg_service(drbg_handle);
 	close(pipe_fd);
 	exit(0);
-}
-
-void print_chars (uint8_t * data, uint32_t data_size)
-{
-	uint32_t i;
-	for (i = 0; i < data_size; i++)
-		printf("%c", data[i]);
-	printf("\n");
 }

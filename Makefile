@@ -1,3 +1,4 @@
+SOURCE_DIR = ./src
 CLIENT_DIR = ./src/client
 SERVER_DIR = ./src/server
 LIBS_DIR = $(SERVER_DIR)/libs
@@ -13,10 +14,10 @@ CFLAGS = -Wall -I$(OPENSSL_DIR)/include
 
 LIBS = -L$(OPENSSL_DIR) -lcrypto -lssl
 
-server: $(SERVER_DIR)/server.c $(LIBS_DIR)/crypto.c $(LIBS_DIR)/sign.c
+server: $(SERVER_DIR)/server.c $(LIBS_DIR)/crypto.c $(LIBS_DIR)/sign.c $(SOURCE_DIR)/comms.c 
 	$(CC) $(CFLAGS) $(OBJS) $^ -o $(BIN_DIR)/server $(LIBS) 
 
-client: $(CLIENT_DIR)/client.c
+client: $(CLIENT_DIR)/client.c $(SOURCE_DIR)/comms.c 
 	$(CC) $(CFLAGS) $^ -o $(BIN_DIR)/client
 
 clean:

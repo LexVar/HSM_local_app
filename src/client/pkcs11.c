@@ -21,12 +21,14 @@
 
 
 #include "pkcs11.h"
+#include "../comms.h"
 
 #define MAX_SESSIONS 1
 #define MAX_SLOTS 1	// App só suport 1 token
 
 // GLOBAL VARIABLES
-CK_BBOOL init = CK_FALSE;
+CK_BBOOL p_init = CK_FALSE;
+uint32_t pipe_fd;	// Pipe descriptor
 // p11_slot g_slots[MAX_SLOTS];
 
 // std::vector<HSM*> devices_list; // the index represents the slotID (so the same device pointer may be in multiple indexes)
@@ -177,9 +179,20 @@ CK_DEFINE_FUNCTION(CK_RV, C_InitPIN)(CK_SESSION_HANDLE hSession, CK_UTF8CHAR_PTR
 }
 
 
+// Operation 2: Set new authentication PIN
 CK_DEFINE_FUNCTION(CK_RV, C_SetPIN)(CK_SESSION_HANDLE hSession, CK_UTF8CHAR_PTR pOldPin, CK_ULONG ulOldLen, CK_UTF8CHAR_PTR pNewPin, CK_ULONG ulNewLen)
 {
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	send_to_connection(pipe_fd, pOldPin, ulOldLen);
+
+	if (!waitOK(pipe_fd))
+		return CKR_PIN_INCORRECT;
+
+	send_to_connection(pipe_fd, pNewPin, ulNewLen);
+
+	if (!waitOK(pipe_fd))
+		return CKR_FUNCTION_FAILED;
+
+	return CKR_OK;
 }
 
 
@@ -218,10 +231,19 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetOperationState)(CK_SESSION_HANDLE hSession, CK_BY
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
-
+// Operation 1: Authenticate
 CK_DEFINE_FUNCTION(CK_RV, C_Login)(CK_SESSION_HANDLE hSession, CK_USER_TYPE userType, CK_UTF8CHAR_PTR pPin, CK_ULONG ulPinLen)
 {
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	uint8_t ret, status;
+	send_to_connection(pipe_fd, pPin, ulPinLen);
+
+	receive_from_connection(pipe_fd, &status, sizeof(uint8_t));
+	if (status == 0)
+		ret = CKR_FUNCTION_FAILED;
+	else
+		ret = CKR_OK;
+
+	return ret;
 }
 
 

@@ -7,14 +7,11 @@
 #include <signal.h>
 #include <inttypes.h>
 #include "../protocol.h"
-#include "../functions.c"
+#include "../comms.h"
+#include "pkcs11.c"
 
 void encrypt_authenticate();
-void sendOK(uint8_t * msg);
-uint8_t waitOK();
 uint32_t get_attribute_from_file (uint8_t * attribute);
-uint8_t authenticate();
-uint8_t set_pin();
 void cleanup();
 void encrypt_authenticate(uint8_t * file);
 void sign_operation();

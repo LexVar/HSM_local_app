@@ -1,6 +1,5 @@
 #include "client.h"
 
-uint32_t pipe_fd;	// pipe file descriptor
 struct request req;	// request structure
 struct response resp;	// response structure
 
@@ -11,6 +10,8 @@ int main(void)
 	signal(SIGINT, cleanup);
 
 	while (1) {
+		// if (C_Initialize(NULL) == CKR_FUNCTION_NOT_SUPPORTED)
+		//         printf("not suppoerted\n");
 		printf ("Press ENTER to continue...\n");
 		if (fgets((char *)greetings, DATA_SIZE, stdin) == NULL)
 			continue;
@@ -27,7 +28,7 @@ int main(void)
 		// Send op code and wait for confirmation
 		// If error occurs, user must choose code:1 and authenticate with PIN
 		send_to_connection(pipe_fd, &req.op_code, sizeof(uint8_t));
-		if (!waitOK())
+		if (!waitOK(pipe_fd))
 		{
 			printf ("NOT AUTHENTICATED\n");
 			continue;
@@ -38,10 +39,45 @@ int main(void)
 		switch (req.op_code)
 		{
 			case 1: // Authentication request
-				authenticate();
+				printf("PIN: ");
+
+				if (fgets((char *)req.auth.pin, PIN_SIZE, stdin) == NULL)
+				{
+					printf ("[CLIENT] Error getting PIN, try again..\n");
+					return 0;
+				}
+				flush_stdin();
+
+				if (C_Login(0, 0, req.auth.pin, PIN_SIZE) == CKR_OK)
+					printf("[CLIENT] Authentication SUCCESS\n");
+				else
+					printf("[CLIENT] Authentication failed\n");
+
 				break;
 			case 2:	// Change authentication PIN
-				set_pin();
+				printf("Old PIN: ");
+				if (fgets((char *)req.auth.pin, PIN_SIZE, stdin) == NULL)
+				{
+					printf ("[CLIENT] Error getting PIN, try again..\n");
+					return 0;
+				}
+				flush_stdin();
+
+				printf("New PIN: ");
+				if (fgets((char *)req.admin.pin, PIN_SIZE, stdin) == NULL)
+				{
+					printf ("[CLIENT] Error getting PIN, try again..\n");
+					return 0;
+				}
+				flush_stdin();
+
+				if (C_SetPIN(0, req.auth.pin, PIN_SIZE, req.admin.pin, PIN_SIZE) == CKR_OK)
+					printf("[CLIENT] PIN succesfully set\n");
+				else
+					printf("[CLIENT] Operation failed \n");
+
+				// C_SetPIN,
+				// set_pin();
 				break;
 			case 3: // Encrypt and authenticate data
 				encrypt_authenticate((uint8_t *)"data.enc");
@@ -63,62 +99,25 @@ int main(void)
 				break;
 			case 9: // Get available symmetric key list
 				receive_from_connection(pipe_fd, resp.list.list,DATA_SIZE);
-				sendOK((uint8_t *)"OK");
+				sendOK(pipe_fd, (uint8_t *)"OK");
 
 				printf ("List of keys:\n");
 				printf("%s", resp.list.list);
 				break;
 			case 10: // Logout request
 				printf ("[CLIENT] Sending logout request\n");
-				waitOK();
+				waitOK(pipe_fd);
 				break;
 			case 0:
 				printf("[CLIENT] Stopping client..\n");
 				exit(0);
 				break;
 			default:
-				waitOK();
+				waitOK(pipe_fd);
 				printf("\n[CLIENT] %d. Is not a valid operation\n", req.op_code);
 		}
 	}
 	return 0;
-}
-
-// Operation 2: Set new authentication PIN
-uint8_t set_pin()
-{
-	printf("New PIN: ");
-	if (fgets((char *)req.admin.pin, PIN_SIZE, stdin) == NULL)
-	{
-		printf ("[CLIENT] Error getting PIN, try again..\n");
-		return 0;
-	}
-	flush_stdin();
-	send_to_connection(pipe_fd, req.admin.pin, PIN_SIZE);
-
-	return waitOK();
-}
-
-// Operation 1: Authenticate
-uint8_t authenticate()
-{
-	printf("PIN: ");
-
-	if (fgets((char *)req.auth.pin, PIN_SIZE, stdin) == NULL)
-	{
-		printf ("[CLIENT] Error getting PIN, try again..\n");
-		return 0;
-	}
-	flush_stdin();
-	send_to_connection(pipe_fd, req.auth.pin, PIN_SIZE);
-
-	receive_from_connection(pipe_fd, &resp.status, sizeof(uint8_t));
-	if (resp.status == 0)
-		printf("[CLIENT] Authentication failed\n");
-	else
-		printf("[CLIENT] Authentication SUCCESS\n");
-
-	return resp.status;
 }
 
 // Operation 3: encrypt + authenticate
@@ -133,12 +132,12 @@ void encrypt_authenticate(uint8_t * file)
 
 	// send data size
 	send_to_connection(pipe_fd, &req.data.data_size, sizeof(uint16_t));
-	if (!waitOK())
+	if (!waitOK(pipe_fd))
 		return;
 
 	// send data
 	send_to_connection(pipe_fd, req.data.data, req.data.data_size);
-	if (!waitOK())
+	if (!waitOK(pipe_fd))
 		return;
 
 	printf("Key ID to use to encrypt/decrypt data: ");
@@ -149,14 +148,14 @@ void encrypt_authenticate(uint8_t * file)
 	}
 
 	send_to_connection(pipe_fd, req.data.key_id, ID_SIZE); // send key ID
-	if (!waitOK())
+	if (!waitOK(pipe_fd))
 		return;
 
 	// Receives encrypt and authenticated data
 	receive_from_connection(pipe_fd, &resp.data.data_size, sizeof(uint16_t));
-	sendOK((uint8_t *)"OK");
+	sendOK(pipe_fd, (uint8_t *)"OK");
 	receive_from_connection(pipe_fd, resp.data.data, resp.data.data_size);
-	sendOK((uint8_t *)"OK");
+	sendOK(pipe_fd, (uint8_t *)"OK");
 
 	if (resp.data.data_size <= 0)
 		printf ("Some error ocurred data\n");
@@ -181,21 +180,21 @@ void sign_operation()
 
 	// send data size
 	send_to_connection(pipe_fd, &req.sign.data_size, sizeof(uint16_t));
-	if(!waitOK())
+	if(!waitOK(pipe_fd))
 		return;
 
 	// send data
 	send_to_connection(pipe_fd, req.sign.data, req.sign.data_size);
-	if(!waitOK())
+	if(!waitOK(pipe_fd))
 		return;
 
 	receive_from_connection(pipe_fd, &resp.status, sizeof(uint8_t));
-	sendOK((uint8_t *)"OK");
+	sendOK(pipe_fd, (uint8_t *)"OK");
 	if (resp.status != 0)
 		return;
 	// Receives encrypt and authenticated data
 	receive_from_connection(pipe_fd, resp.sign.signature, SIGNATURE_SIZE);
-	sendOK((uint8_t *)"OK");
+	sendOK(pipe_fd, (uint8_t *)"OK");
 
 	printf ("[CLIENT] Signature: (\"signature.txt\"):\n%s\n", resp.sign.signature);
 	write_to_file ((uint8_t *)"signature.txt", resp.sign.signature, SIGNATURE_SIZE);
@@ -213,12 +212,12 @@ void verify_operation()
 
 	// send data size
 	send_to_connection(pipe_fd, &req.verify.data_size, sizeof(uint16_t));
-	if(!waitOK())
+	if(!waitOK(pipe_fd))
 		return;
 
 	// send data
 	send_to_connection(pipe_fd, req.verify.data, req.verify.data_size);
-	if(!waitOK())
+	if(!waitOK(pipe_fd))
 		return;
 
 	printf("Signature filename: ");
@@ -227,7 +226,7 @@ void verify_operation()
 
 	// send data size
 	send_to_connection(pipe_fd, req.verify.signature, SIGNATURE_SIZE);
-	if(!waitOK())
+	if(!waitOK(pipe_fd))
 		return;
 
 	printf("Entity's ID: ");
@@ -239,12 +238,12 @@ void verify_operation()
 
 	// send entity ID
 	send_to_connection(pipe_fd, req.verify.entity_id, ID_SIZE);
-	if(!waitOK())
+	if(!waitOK(pipe_fd))
 		return;
 
 	// Receives encrypt and authenticated data
 	receive_from_connection(pipe_fd, &resp.status, sizeof(uint8_t));
-	sendOK((uint8_t *)"OK");
+	sendOK(pipe_fd, (uint8_t *)"OK");
 
 	if (resp.status != 0)
 		printf ("[CLIENT] Signature successfully verified\n");
@@ -262,7 +261,7 @@ void import_pubkey_operation()
 	}
 	// send entity ID
 	send_to_connection(pipe_fd, req.import_pub.entity_id, ID_SIZE);
-	if(!waitOK())
+	if(!waitOK(pipe_fd))
 		return;
 
 	printf("Public key filename: ");
@@ -271,17 +270,17 @@ void import_pubkey_operation()
 
 	// Send certificate size
 	send_to_connection(pipe_fd, &req.import_pub.cert_size, sizeof(uint16_t));
-	if(!waitOK())
+	if(!waitOK(pipe_fd))
 		return;
 
 	// send entity ID
 	send_to_connection(pipe_fd, req.import_pub.public_key, req.import_pub.cert_size);
-	if(!waitOK())
+	if(!waitOK(pipe_fd))
 		return;
 
 	// Receives status
 	receive_from_connection(pipe_fd, &resp.status, sizeof(uint8_t));
-	sendOK((uint8_t *)"OK");
+	sendOK(pipe_fd, (uint8_t *)"OK");
 
 	if (resp.status != 0)
 		printf ("[CLIENT] Public key successfully saved\n");
@@ -298,11 +297,11 @@ void new_comms_key()
 	}
 	// send entity ID
 	send_to_connection(pipe_fd, req.gen_key.entity_id, ID_SIZE);
-	if(!waitOK())
+	if(!waitOK(pipe_fd))
 		return;
 
 	receive_from_connection(pipe_fd, &resp.status, sizeof(uint8_t));
-	sendOK((uint8_t *)"OK");
+	sendOK(pipe_fd, (uint8_t *)"OK");
 	if (resp.status == 0)
 		printf ("[CLIENT] Key successfully generated and saved with key_id: %s\n", req.gen_key.entity_id);
 	else
@@ -322,25 +321,6 @@ uint32_t get_attribute_from_file (uint8_t * attribute)
 
 	// get data and size from file
 	return read_from_file (filename, attribute);
-}
-
-void sendOK(uint8_t * msg)
-{
-	send_to_connection(pipe_fd, msg, sizeof(msg));
-}
-
-uint8_t waitOK()
-{
-	uint8_t msg[ID_SIZE];
-	receive_from_connection(pipe_fd, msg, ID_SIZE);
-
-	printf ("%s\n", msg);
-
-	if (msg[0] != 'O' || msg[1] != 'K')
-		resp.status = 0;
-	else
-		resp.status = 1;
-	return resp.status;
 }
 
 void cleanup()

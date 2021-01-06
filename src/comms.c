@@ -1,10 +1,4 @@
-#include <stdio.h>
-#include <unistd.h>
-#include <sys/stat.h>
-#include <fcntl.h>           /* Definition of AT_* constants */
-#include <inttypes.h>
-
-#define PIPE_NAME "/tmp/connection" // Pipe name
+#include "comms.h"
 
 // Receive a message from the other process
 // fd - pipe file descriptor
@@ -54,6 +48,35 @@ uint32_t send_to_connection (uint32_t fd, void * structure, uint32_t struct_size
 	close(fd);
 	sleep (0.3);
 	return bytes;
+}
+
+uint8_t send_status(uint32_t pipe_fd, uint8_t status)
+{
+	if (status == 0)
+		send_to_connection(pipe_fd, (uint8_t *)"NO", sizeof("NO"));
+	else
+		send_to_connection(pipe_fd, (uint8_t *)"OK", sizeof("OK"));
+	return status;
+}
+
+void sendOK(uint32_t pipe_fd, uint8_t * msg)
+{
+	send_to_connection(pipe_fd, msg, sizeof(msg));
+}
+
+uint8_t waitOK(uint32_t pipe_fd)
+{
+	uint8_t msg[ID_SIZE];
+	uint8_t status;
+	receive_from_connection(pipe_fd, msg, ID_SIZE);
+
+	printf ("%s\n", msg);
+
+	if (msg[0] != 'O' || msg[1] != 'K')
+		status = 0;
+	else
+		status = 1;
+	return status;
 }
 
 void * write_to_file (uint8_t * filename, uint8_t * content, uint32_t fsize)
@@ -106,5 +129,13 @@ void print_hexa(uint8_t * string, uint32_t length)
 	for (i = 0; i < length; i++)
 		printf("%x ",string[i] & 0xff);
 
+	printf("\n");
+}
+
+void print_chars (uint8_t * data, uint32_t data_size)
+{
+	uint32_t i;
+	for (i = 0; i < data_size; i++)
+		printf("%c", data[i]);
 	printf("\n");
 }

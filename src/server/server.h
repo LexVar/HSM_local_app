@@ -7,7 +7,7 @@
 #include <signal.h>
 #include <dirent.h>
 #include "../protocol.h"
-#include "../functions.c"
+#include "../comms.h"
 #include "libs/sign.h"
 #include "libs/crypto.h"
 #include "libs/ecdh.c"
@@ -16,12 +16,7 @@
 #define PRIVATE_KEY "keys/alice.pem"
 #define PRIVATE_KEY_RSA "keys/test.pem"
 
-uint8_t send_status(uint8_t status);
-uint8_t waitOK();
-void sendOK(uint8_t * msg);
 uint32_t get_list_comm_keys(uint8_t * list);
-void print_hex (uint8_t * data, uint32_t data_size);
-void print_chars (uint8_t * data, uint32_t data_size);
 void get_key_path (uint8_t * entity, uint8_t * key_path, uint8_t * extension);
 void authenticate();
 void encrypt_authenticate();
