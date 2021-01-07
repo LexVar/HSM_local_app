@@ -1,41 +1,37 @@
 #include "client.h"
 
-struct request req;	// request structure
-struct response resp;	// response structure
-
 int main(void)
 {
-	uint8_t greetings[DATA_SIZE];
+	CK_RV r;
+	CK_MECHANISM sign_mechanism;
+	CK_ECDH1_DERIVE_PARAMS ecdh;
 	// Redirects SIGINT (CTRL-c) to cleanup()
 	signal(SIGINT, cleanup);
 
+	if (C_Initialize(NULL) != CKR_OK)
+	{
+		printf("C_Initialize - error ocurred\n");
+		exit(-1);
+	}
+
 	while (1) {
-		// if (C_Initialize(NULL) == CKR_FUNCTION_NOT_SUPPORTED)
-		//         printf("not suppoerted\n");
+
 		printf ("Press ENTER to continue...\n");
-		if (fgets((char *)greetings, DATA_SIZE, stdin) == NULL)
-			continue;
-
-		// Get greetings message
-		receive_from_connection(pipe_fd, greetings, sizeof(greetings));
-		printf ("%s", greetings);
-
-		// Input op code from stdin
-		scanf("%hhd", &(req.op_code));
-
 		flush_stdin();
 
-		// Send op code and wait for confirmation
-		// If error occurs, user must choose code:1 and authenticate with PIN
-		send_to_connection(pipe_fd, &req.op_code, sizeof(uint8_t));
-		if (!waitOK(pipe_fd))
+		r = HSM_C_ChooseOpCode(0, &req.op_code);
+		if (r == CKF_LOGIN_REQUIRED && req.op_code != 1)
 		{
 			printf ("NOT AUTHENTICATED\n");
 			continue;
 		}
+		else if (r == CKR_CRYPTOKI_NOT_INITIALIZED)
+		{
+			printf("Cryptoki not initialized\n");
+			continue;
+		}
 
 		// ------------------------------
-		// set request attributes depending on op. code
 		switch (req.op_code)
 		{
 			case 1: // Authentication request
@@ -59,7 +55,7 @@ int main(void)
 				if (fgets((char *)req.auth.pin, PIN_SIZE, stdin) == NULL)
 				{
 					printf ("[CLIENT] Error getting PIN, try again..\n");
-					return 0;
+					continue;
 				}
 				flush_stdin();
 
@@ -67,7 +63,7 @@ int main(void)
 				if (fgets((char *)req.admin.pin, PIN_SIZE, stdin) == NULL)
 				{
 					printf ("[CLIENT] Error getting PIN, try again..\n");
-					return 0;
+					continue;
 				}
 				flush_stdin();
 
@@ -75,9 +71,6 @@ int main(void)
 					printf("[CLIENT] PIN succesfully set\n");
 				else
 					printf("[CLIENT] Operation failed \n");
-
-				// C_SetPIN,
-				// set_pin();
 				break;
 			case 3: // Encrypt and authenticate data
 				encrypt_authenticate((uint8_t *)"data.enc");
@@ -86,23 +79,92 @@ int main(void)
 				encrypt_authenticate((uint8_t *)"data.txt");
 				break;
 			case 5:	// Sign message
-				sign_operation();
+				printf("Data filename: ");
+				if ((req.sign.data_size = get_attribute_from_file(req.sign.data)) == 0)
+				{
+					printf("Some error\n");
+					req.sign.data[0] = 0;
+				}
+
+				sign_mechanism.mechanism = CKM_ECDSA;
+				sign_mechanism.pParameter = NULL_PTR;
+				sign_mechanism.ulParameterLen = 0;
+				// sign_mechanism = { CKM_ECDSA, NULL_PTR, 0 };
+				r = C_SignInit(0, &sign_mechanism, NULL_PTR);
+				if (r != CKR_OK)
+				{
+					printf("C_SignInit Failed: %ld\n", r);
+					continue;
+				}
+				r = C_Sign(0, req.sign.data, req.sign.data_size, resp.sign.signature, NULL);
+				if (r != CKR_OK)
+				{
+					printf("C_Sign Failed: %ld\n", r);
+					continue;
+				}
+				printf ("[CLIENT] Signature: (\"signature.txt\"):\n%s\n", resp.sign.signature);
+				write_to_file ((uint8_t *)"signature.txt", resp.sign.signature, SIGNATURE_SIZE);
 				break;
 			case 6:	// Sign message
-				verify_operation();
+				printf("Data filename: ");
+				if ((req.verify.data_size = get_attribute_from_file(req.verify.data)) == 0)
+				{
+					printf ("Some error\n");
+					req.verify.data[0] = 0;
+				}
+
+				printf("Signature filename: ");
+				if (get_attribute_from_file(req.verify.signature) == 0)
+					printf ("Some error\n");
+
+				printf("Entity's ID: ");
+				if (fgets((char *)req.verify.entity_id, ID_SIZE, stdin) == NULL)
+				{
+					printf ("[CLIENT] Error getting ID, try again..\n");
+					req.verify.entity_id[0] = 0;
+				}
+
+				sign_mechanism.mechanism = CKM_ECDSA;
+				sign_mechanism.pParameter = NULL_PTR;
+				sign_mechanism.ulParameterLen = 0;
+				r = C_VerifyInit(0, &sign_mechanism, NULL_PTR);
+				if (r != CKR_OK)
+				{
+					printf("C_VerifyInit Failed: %ld\n", r);
+					continue;
+				}
+				r = C_Verify(0, req.verify.data, req.verify.data_size, req.verify.signature, SIGNATURE_SIZE);
+				if (r != CKR_OK)
+				{
+					printf("C_Verify Failed: %lx\n", r);
+					printf ("[CLIENT] Signature failed verification\n");
+					continue;
+				}
+				else
+					printf ("[CLIENT] Signature successfully verified\n");
+				// verify_operation();
 				break;
 			case 7:	// Import public key
 				import_pubkey_operation();
 				break;
 			case 8: // New communications key
+				ecdh.kdf = CKM_SHA256_KEY_DERIVATION;
+				ecdh.ulSharedDataLen = 0;
+				ecdh.pSharedData = NULL;
+				// ecdh.ulPublicDataLen = ;
+				// ecdh.pPublicData = ;
+				CK_MECHANISM mechanism;
+				mechanism.pParameter = &ecdh;
+				mechanism.ulParameterLen = sizeof(CK_ECDH1_DERIVE_PARAMS);
+				mechanism.mechanism = CKM_ECDH1_DERIVE; 
+
 				new_comms_key();
 				break;
 			case 9: // Get available symmetric key list
-				receive_from_connection(pipe_fd, resp.list.list,DATA_SIZE);
-				sendOK(pipe_fd, (uint8_t *)"OK");
-
-				printf ("List of keys:\n");
-				printf("%s", resp.list.list);
+				if (HSM_C_GetKeyList(0, resp.list.list) == CKR_OK)
+					printf("List of keys:\n%s\n", resp.list.list);
+				else
+					printf("Function error \n");
 				break;
 			case 10: // Logout request
 				printf ("[CLIENT] Sending logout request\n");
@@ -168,38 +230,6 @@ void encrypt_authenticate(uint8_t * file)
 	}
 }
 
-// Operation 5: sign data
-void sign_operation()
-{
-	printf("Data filename: ");
-	if ((req.sign.data_size = get_attribute_from_file(req.sign.data)) == 0)
-	{
-		printf ("Some error\n");
-		req.sign.data[0] = 0;
-	}
-
-	// send data size
-	send_to_connection(pipe_fd, &req.sign.data_size, sizeof(uint16_t));
-	if(!waitOK(pipe_fd))
-		return;
-
-	// send data
-	send_to_connection(pipe_fd, req.sign.data, req.sign.data_size);
-	if(!waitOK(pipe_fd))
-		return;
-
-	receive_from_connection(pipe_fd, &resp.status, sizeof(uint8_t));
-	sendOK(pipe_fd, (uint8_t *)"OK");
-	if (resp.status != 0)
-		return;
-	// Receives encrypt and authenticated data
-	receive_from_connection(pipe_fd, resp.sign.signature, SIGNATURE_SIZE);
-	sendOK(pipe_fd, (uint8_t *)"OK");
-
-	printf ("[CLIENT] Signature: (\"signature.txt\"):\n%s\n", resp.sign.signature);
-	write_to_file ((uint8_t *)"signature.txt", resp.sign.signature, SIGNATURE_SIZE);
-}
-
 // Operation 6: verify signature from data
 void verify_operation()
 {
@@ -211,7 +241,7 @@ void verify_operation()
 	}
 
 	// send data size
-	send_to_connection(pipe_fd, &req.verify.data_size, sizeof(uint16_t));
+	send_to_connection(pipe_fd, &req.verify.data_size, sizeof(req.verify.data_size));
 	if(!waitOK(pipe_fd))
 		return;
 
@@ -238,14 +268,12 @@ void verify_operation()
 
 	// send entity ID
 	send_to_connection(pipe_fd, req.verify.entity_id, ID_SIZE);
-	if(!waitOK(pipe_fd))
-		return;
 
 	// Receives encrypt and authenticated data
 	receive_from_connection(pipe_fd, &resp.status, sizeof(uint8_t));
 	sendOK(pipe_fd, (uint8_t *)"OK");
 
-	if (resp.status != 0)
+	if (resp.status > 0)
 		printf ("[CLIENT] Signature successfully verified\n");
 	else
 		printf ("[CLIENT] Signature failed verification\n");

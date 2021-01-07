@@ -78,24 +78,28 @@ int main (void)
 				send_to_connection(pipe_fd, resp.data.data, resp.data.data_size);
 				waitOK(pipe_fd);
 				break;
-			case 5: // Encrypt(sign) with private key
+			case 5: // Sign with private key
 				// Get data size
-				receive_from_connection(pipe_fd, &req.sign.data_size, sizeof(uint16_t));
+				receive_from_connection(pipe_fd, &req.sign.data_size, sizeof(req.sign.data_size));
 				// Check if size is 0
 				if (send_status(pipe_fd, req.sign.data_size) == 0)
 					continue;
 
 				// Get data
 				receive_from_connection(pipe_fd, req.sign.data, req.sign.data_size);
-				sendOK(pipe_fd, (uint8_t *)"OK");
+				printf ("data: %s\n", req.sign.data);
+				// sendOK(pipe_fd, (uint8_t *)"OK");
 
-				sign_operation(); // Sign with private key
+				if (req.sign.data[0] != 0)
+					sign_operation(); // Sign with private key
+				else
+					resp.status = 1;
 
 				// Send op status
 				send_to_connection(pipe_fd, &resp.status, sizeof(uint8_t));
 				waitOK(pipe_fd);
 
-				if (resp.status == 0)
+				if (resp.status != 0)
 					continue;
 				// if status is good, send signature
 				send_to_connection(pipe_fd, resp.sign.signature, SIGNATURE_SIZE);
@@ -103,7 +107,7 @@ int main (void)
 				break;
 			case 6: // Verify signature
 				// Get data size
-				receive_from_connection(pipe_fd, &req.verify.data_size, sizeof(uint16_t));
+				receive_from_connection(pipe_fd, &req.verify.data_size, sizeof(req.verify.data_size));
 				// Check if size is 0
 				if (send_status(pipe_fd, req.verify.data_size) == 0)
 					continue;
@@ -119,10 +123,10 @@ int main (void)
 				// Get entity ID who signed the data
 				receive_from_connection(pipe_fd, req.verify.entity_id, ID_SIZE);
 				// Check if entity ID is empty
-				if (send_status(pipe_fd, req.verify.entity_id[0]) == 0)
-					continue;
-
-				verify_operation(); // verifies signature
+				if (req.verify.entity_id[0] != 0)
+					verify_operation(); // verifies signature
+				else
+					resp.status = 0;
 
 				// Send op status
 				send_to_connection(pipe_fd, &resp.status, sizeof(uint8_t));

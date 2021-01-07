@@ -27,8 +27,11 @@
 #define MAX_SLOTS 1	// App só suport 1 token
 
 // GLOBAL VARIABLES
-CK_BBOOL p_init = CK_FALSE;
+CK_BBOOL init = CK_FALSE;
 uint32_t pipe_fd;	// Pipe descriptor
+
+struct request req;	// request structure
+struct response resp;	// response structure
 // p11_slot g_slots[MAX_SLOTS];
 
 // std::vector<HSM*> devices_list; // the index represents the slotID (so the same device pointer may be in multiple indexes)
@@ -107,10 +110,27 @@ CK_FUNCTION_LIST pkcs11_functions =
 	&C_WaitForSlotEvent
 };
 
+/*
+	Initializes Cryptoki
+	Since we don't support multi-threading, the argument must be NULL
 
+*/
 CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs)
 {
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	if (pInitArgs != NULL_PTR)
+		return CKR_ARGUMENTS_BAD;
+
+	if (init)
+		return CKR_CRYPTOKI_ALREADY_INITIALIZED;
+
+	// add slot for HSM token
+	// HSM * g_hsm = new HSM();
+	// if (!g_hsm->init())
+	//         return CKR_FUNCTION_FAILED;
+
+	init = CK_TRUE;
+
+	return CKR_OK;
 }
 
 
@@ -182,6 +202,12 @@ CK_DEFINE_FUNCTION(CK_RV, C_InitPIN)(CK_SESSION_HANDLE hSession, CK_UTF8CHAR_PTR
 // Operation 2: Set new authentication PIN
 CK_DEFINE_FUNCTION(CK_RV, C_SetPIN)(CK_SESSION_HANDLE hSession, CK_UTF8CHAR_PTR pOldPin, CK_ULONG ulOldLen, CK_UTF8CHAR_PTR pNewPin, CK_ULONG ulNewLen)
 {
+	if (!init)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+
+	// Get session
+	//
+	
 	send_to_connection(pipe_fd, pOldPin, ulOldLen);
 
 	if (!waitOK(pipe_fd))
@@ -234,10 +260,17 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetOperationState)(CK_SESSION_HANDLE hSession, CK_BY
 // Operation 1: Authenticate
 CK_DEFINE_FUNCTION(CK_RV, C_Login)(CK_SESSION_HANDLE hSession, CK_USER_TYPE userType, CK_UTF8CHAR_PTR pPin, CK_ULONG ulPinLen)
 {
-	uint8_t ret, status;
+	CK_BYTE ret, status;
+
+	if (!init)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+
+	// Get session
+	//
+	
 	send_to_connection(pipe_fd, pPin, ulPinLen);
 
-	receive_from_connection(pipe_fd, &status, sizeof(uint8_t));
+	receive_from_connection(pipe_fd, &status, sizeof(CK_BYTE));
 	if (status == 0)
 		ret = CKR_FUNCTION_FAILED;
 	else
@@ -387,13 +420,49 @@ CK_DEFINE_FUNCTION(CK_RV, C_DigestFinal)(CK_SESSION_HANDLE hSession, CK_BYTE_PTR
 
 CK_DEFINE_FUNCTION(CK_RV, C_SignInit)(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism, CK_OBJECT_HANDLE hKey)
 {
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	if (!init)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+
+	if (pMechanism->mechanism != CKM_ECDSA)
+		return CKR_MECHANISM_INVALID;
+
+	// Key object must be NULL_PTR (the HSM uses internal keys)
+	if (hKey != NULL_PTR)
+		return CKR_KEY_HANDLE_INVALID;
+
+	// TODO
+	// set operation code in structure
+	return CKR_OK;
 }
 
 
+// Operation 5: sign data
 CK_DEFINE_FUNCTION(CK_RV, C_Sign)(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pData, CK_ULONG ulDataLen, CK_BYTE_PTR pSignature, CK_ULONG_PTR pulSignatureLen)
 {
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	CK_BYTE status;
+
+	if (!init)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+
+	// send data size
+	send_to_connection(pipe_fd, &ulDataLen, sizeof(ulDataLen));
+	if(!waitOK(pipe_fd))
+		return CKR_FUNCTION_FAILED;
+
+	// send data
+	send_to_connection(pipe_fd, pData, ulDataLen);
+
+	receive_from_connection(pipe_fd, &status, sizeof(CK_BYTE));
+	sendOK(pipe_fd, (uint8_t *)"OK");
+
+	if (status != 0)
+		return CKR_FUNCTION_FAILED;
+
+	// Receives encrypt and authenticated data
+	receive_from_connection(pipe_fd, pSignature, SIGNATURE_SIZE);
+	sendOK(pipe_fd, (uint8_t *)"OK");
+
+	return CKR_OK;
 }
 
 
@@ -423,13 +492,55 @@ CK_DEFINE_FUNCTION(CK_RV, C_SignRecover)(CK_SESSION_HANDLE hSession, CK_BYTE_PTR
 
 CK_DEFINE_FUNCTION(CK_RV, C_VerifyInit)(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism, CK_OBJECT_HANDLE hKey)
 {
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	if (!init)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+
+	if (pMechanism->mechanism != CKM_ECDSA)
+		return CKR_MECHANISM_INVALID;
+
+	// Key object must be NULL_PTR (the HSM uses internal keys)
+	if (hKey != NULL_PTR)
+		return CKR_KEY_HANDLE_INVALID;
+
+	// TODO
+	// set operation code in structure
+	return CKR_OK;
 }
 
 
 CK_DEFINE_FUNCTION(CK_RV, C_Verify)(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pData, CK_ULONG ulDataLen, CK_BYTE_PTR pSignature, CK_ULONG ulSignatureLen)
 {
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	CK_BYTE status;
+
+	if (!init)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+
+	// send data size
+	send_to_connection(pipe_fd, &ulDataLen, sizeof(ulDataLen));
+	if(!waitOK(pipe_fd))
+		return CKR_FUNCTION_FAILED;
+
+	// send data
+	send_to_connection(pipe_fd, pData, ulDataLen);
+	if(!waitOK(pipe_fd))
+		return CKR_FUNCTION_FAILED;
+
+	// send data size
+	send_to_connection(pipe_fd, pSignature, ulSignatureLen);
+	if(!waitOK(pipe_fd))
+		return CKR_FUNCTION_FAILED;
+
+	// send entity ID
+	send_to_connection(pipe_fd, req.verify.entity_id, ID_SIZE);
+
+	// Receives encrypt and authenticated data
+	receive_from_connection(pipe_fd, &status, sizeof(uint8_t));
+	sendOK(pipe_fd, (uint8_t *)"OK");
+
+	if (status > 0)
+		return CKR_OK;
+	else
+		return CKR_FUNCTION_FAILED;
 }
 
 
@@ -539,3 +650,44 @@ CK_DEFINE_FUNCTION(CK_RV, C_WaitForSlotEvent)(CK_FLAGS flags, CK_SLOT_ID_PTR pSl
 {
 	return CKR_FUNCTION_NOT_SUPPORTED;
 }
+
+CK_DEFINE_FUNCTION(CK_RV, HSM_C_GetKeyList)(CK_SLOT_ID_PTR pSlot, CK_BYTE_PTR list)
+{
+	if (!init)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+
+	// Get session
+
+	receive_from_connection(pipe_fd, list, DATA_SIZE);
+	sendOK(pipe_fd, (uint8_t *)"OK");
+
+	return CKR_OK;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, HSM_C_ChooseOpCode)(CK_SLOT_ID_PTR pSlot, CK_BYTE_PTR opcode)
+{
+	CK_BYTE greetings[DATA_SIZE];
+	if (!init)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+
+	// Get session
+
+	// Get greetings message
+	receive_from_connection(pipe_fd, greetings, sizeof(greetings));
+	printf ("%s", greetings);
+
+	// Input op code from stdin
+	scanf("%hhd", opcode);
+	flush_stdin();
+
+	// Send op code and wait for confirmation
+	// If error occurs, user must choose code:1 and authenticate with PIN
+	send_to_connection(pipe_fd, opcode, sizeof(CK_BYTE));
+	if (!waitOK(pipe_fd))
+	{
+		return CKF_LOGIN_REQUIRED;
+	}
+
+	return CKR_OK;
+}
+

@@ -910,3 +910,29 @@ CK_PKCS11_FUNCTION_INFO(C_WaitForSlotEvent)
   CK_VOID_PTR pRserved   /* reserved.  Should be NULL_PTR */
 );
 #endif
+
+// -------------------------------------------------------------
+// --------------------- CUSTOM FUNCTIONS ----------------------
+// -------------------------------------------------------------
+
+/* HSM_C_GetKeyList gets the list of available communication keys
+ * (symmetric keys). */
+CK_PKCS11_FUNCTION_INFO(HSM_C_GetKeyList)
+#ifdef CK_NEED_ARG_LIST
+(
+  CK_SLOT_ID_PTR pSlot, /* location that receives the slot ID */
+  CK_BYTE_PTR list	/* location where the list is saved */
+);
+#endif
+
+
+/* HSM_C_GetKeyList gets the list of available communication keys
+ * (symmetric keys). */
+CK_PKCS11_FUNCTION_INFO(HSM_C_ChooseOpCode)
+#ifdef CK_NEED_ARG_LIST
+(
+  CK_SLOT_ID_PTR pSlot, /* location that receives the slot ID */
+  CK_BYTE_PTR opcode	/* Where the chosen operation code will be saved */
+);
+#endif
+

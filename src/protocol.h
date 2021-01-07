@@ -75,7 +75,7 @@ struct save_key_response {
 
 // Sign document request, response structures
 struct sign_request {
-	uint16_t data_size;
+	uint32_t data_size;
 	uint8_t data[DATA_SIZE];		// Data to be signed
 };
 
@@ -88,7 +88,7 @@ struct sign_response {
 struct verify_request {
 	uint8_t signature[SIGNATURE_SIZE];	// Data signature
 	uint8_t entity_id[ID_SIZE];		// ID of entity who signed the data
-	uint16_t data_size;
+	uint32_t data_size;
 	uint8_t data[DATA_SIZE];		// Data signed
 };
 
