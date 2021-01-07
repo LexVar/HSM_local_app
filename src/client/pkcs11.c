@@ -286,9 +286,58 @@ CK_DEFINE_FUNCTION(CK_RV, C_Logout)(CK_SESSION_HANDLE hSession)
 }
 
 
+// Can be used to create a new object on HSM
+// Usefull for new certificate
+// Operation 7: import public key certificate
 CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)(CK_SESSION_HANDLE hSession, CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount, CK_OBJECT_HANDLE_PTR phObject)
 {
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	CK_LONG p = 0;
+	CK_BYTE error = 0, r, status;
+
+	if (!init)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+	if (pTemplate == NULL_PTR)
+		return CKR_ARGUMENTS_BAD;
+
+	for (p = 0; p < ulCount; p++)
+	{
+		if (pTemplate[p].type == CKA_CLASS && *((CK_BYTE_PTR)pTemplate[p].pValue) != CKO_CERTIFICATE)
+			error = 1;
+		else if (pTemplate[p].type == CKA_CERTIFICATE_TYPE && *((CK_BYTE_PTR)pTemplate[p].pValue) != CKC_X_509)
+			error = 1;
+		else if (pTemplate[p].type == CKA_TOKEN && *((CK_BYTE_PTR)pTemplate[p].pValue) != CK_FALSE)
+			error = 1;
+		else if (pTemplate[p].type == CKA_ID)
+		{
+			if (error) *((CK_BYTE_PTR)pTemplate[p].pValue) = 0;
+			// send entity ID
+			send_to_connection(pipe_fd, pTemplate[p].pValue, pTemplate[p].ulValueLen);
+			if(!waitOK(pipe_fd))
+				return CKR_FUNCTION_FAILED;
+		}
+		else if (pTemplate[p].type == CKA_VALUE)
+		{
+			if (error) pTemplate[p].ulValueLen = 0;
+
+			// Send certificate size
+			send_to_connection(pipe_fd, &pTemplate[p].ulValueLen, sizeof(pTemplate[p].ulValueLen));
+			if(!waitOK(pipe_fd))
+				return CKR_FUNCTION_FAILED;
+			// send certificate
+			send_to_connection(pipe_fd, pTemplate[p].pValue, pTemplate[p].ulValueLen);
+			if(!waitOK(pipe_fd))
+				return CKR_FUNCTION_FAILED;
+		}
+	}
+	// Receives status
+	receive_from_connection(pipe_fd, &status, sizeof(uint8_t));
+	sendOK(pipe_fd, (uint8_t *)"OK");
+
+	if (status != 0)
+		r = CKR_OK;
+	else
+		r = CKR_FUNCTION_FAILED;
+	return r;
 }
 
 
@@ -616,9 +665,52 @@ CK_DEFINE_FUNCTION(CK_RV, C_UnwrapKey)(CK_SESSION_HANDLE hSession, CK_MECHANISM_
 }
 
 
+// Operation 8: Generate new key for sharing
 CK_DEFINE_FUNCTION(CK_RV, C_DeriveKey)(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism, CK_OBJECT_HANDLE hBaseKey, CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulAttributeCount, CK_OBJECT_HANDLE_PTR phKey)
 {
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	CK_BYTE r, status;
+	CK_ECDH1_DERIVE_PARAMS_PTR p;
+
+	if (!init)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+
+	if (pMechanism == NULL)
+		return CKR_ARGUMENTS_BAD;
+
+	if (pMechanism->mechanism != CKM_ECDH1_DERIVE)
+		return CKR_MECHANISM_INVALID;
+
+	p = pMechanism->pParameter;
+	if (p == NULL || p->kdf != CKM_SHA256_KEY_DERIVATION)
+		return CKR_MECHANISM_INVALID;
+
+	// Shared key must be null
+	if (p->ulSharedDataLen != 0 || p->pSharedData != NULL)
+		return CKR_FUNCTION_FAILED;
+
+	// Public key must be set
+	if (p->ulPublicDataLen == 0 || p->pPublicData == NULL)
+		return CKR_FUNCTION_FAILED;
+
+	// key stays inside the HSM
+	if (phKey != NULL)
+		return CKR_OBJECT_HANDLE_INVALID;
+	if (pTemplate != NULL)
+		return CKR_ATTRIBUTE_VALUE_INVALID;
+
+	// send entity ID
+	send_to_connection(pipe_fd, p->pPublicData , p->ulPublicDataLen);
+	if(!waitOK(pipe_fd))
+		return CKR_FUNCTION_FAILED;
+
+	receive_from_connection(pipe_fd, &status, sizeof(CK_BYTE));
+	sendOK(pipe_fd, (uint8_t *)"OK");
+
+	if (status == 0)
+		r = CKR_OK;
+	else
+		r = CKR_FUNCTION_FAILED;
+	return r;
 }
 
 

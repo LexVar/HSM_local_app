@@ -5,6 +5,10 @@ int main(void)
 	CK_RV r;
 	CK_MECHANISM sign_mechanism;
 	CK_ECDH1_DERIVE_PARAMS ecdh;
+	CK_OBJECT_CLASS class;
+	CK_CERTIFICATE_TYPE certType;
+	CK_BBOOL false;
+
 	// Redirects SIGINT (CTRL-c) to cleanup()
 	signal(SIGINT, cleanup);
 
@@ -142,23 +146,67 @@ int main(void)
 				}
 				else
 					printf ("[CLIENT] Signature successfully verified\n");
-				// verify_operation();
 				break;
 			case 7:	// Import public key
-				import_pubkey_operation();
+
+				printf("Entity's ID: ");
+				if (fgets((char *)req.import_pub.entity_id, ID_SIZE, stdin) == NULL)
+				{
+					printf ("[CLIENT] Error getting ID, try again..\n");
+					req.verify.entity_id[0] = 0;
+				}
+
+				printf("Public key filename: ");
+				if ((req.import_pub.cert_size = get_attribute_from_file(req.import_pub.public_key)) == 0)
+					printf ("Some error\n");
+
+				class = CKO_CERTIFICATE;
+				certType = CKC_X_509;
+				false = CK_FALSE;
+				CK_ATTRIBUTE template[] = {
+					{CKA_CLASS, &class, sizeof(class)},
+					{CKA_CERTIFICATE_TYPE, &certType, sizeof(certType)},
+					{CKA_TOKEN, &false, sizeof(false)},
+						// The id must be set
+						// Must be before the certificate data CKA_VALUE
+					{CKA_ID, req.import_pub.entity_id, sizeof(req.import_pub.entity_id)},
+					{CKA_VALUE, req.import_pub.public_key, req.import_pub.cert_size} };
+
+				// The handle is null since the certificate will not be saved locally, only HSM
+				r = C_CreateObject (0, template, 5, NULL);
+
+				if (r != CKR_OK)
+					printf ("[CLIENT] Error saving certificate\n");
+				else
+					printf ("[CLIENT] Certificate successfully saved\n");
+				// import_pubkey_operation();
 				break;
 			case 8: // New communications key
+				printf("Entity's ID (to share key with): ");
+				if (fgets((char *)req.gen_key.entity_id, ID_SIZE, stdin) == NULL)
+				{
+					printf ("[CLIENT] Error getting ID, try again..\n");
+					req.gen_key.entity_id[0] = 0;
+				}
+				// Set ECDH mechanisms and sha256 key derivation
 				ecdh.kdf = CKM_SHA256_KEY_DERIVATION;
 				ecdh.ulSharedDataLen = 0;
 				ecdh.pSharedData = NULL;
-				// ecdh.ulPublicDataLen = ;
-				// ecdh.pPublicData = ;
+				ecdh.pPublicData = req.gen_key.entity_id;
+				ecdh.ulPublicDataLen = ID_SIZE;
 				CK_MECHANISM mechanism;
-				mechanism.pParameter = &ecdh;
+				mechanism.pParameter = (CK_ECDH1_DERIVE_PARAMS_PTR)&ecdh;
 				mechanism.ulParameterLen = sizeof(CK_ECDH1_DERIVE_PARAMS);
 				mechanism.mechanism = CKM_ECDH1_DERIVE; 
 
-				new_comms_key();
+				r = C_DeriveKey(0, &mechanism, 0, NULL, 0, NULL);
+				if (r != CKR_OK)
+				{
+					printf("C_Derive Failed: %lx\n", r);
+					printf ("[CLIENT] Some error ocurred deriving shared secret\n");
+				}
+				else
+					printf ("[CLIENT] Key successfully generated and saved with key_id: %s\n", req.gen_key.entity_id);
 				break;
 			case 9: // Get available symmetric key list
 				if (HSM_C_GetKeyList(0, resp.list.list) == CKR_OK)
@@ -193,7 +241,7 @@ void encrypt_authenticate(uint8_t * file)
 	}
 
 	// send data size
-	send_to_connection(pipe_fd, &req.data.data_size, sizeof(uint16_t));
+	send_to_connection(pipe_fd, &req.data.data_size, sizeof(req.data.data_size));
 	if (!waitOK(pipe_fd))
 		return;
 
@@ -214,7 +262,7 @@ void encrypt_authenticate(uint8_t * file)
 		return;
 
 	// Receives encrypt and authenticated data
-	receive_from_connection(pipe_fd, &resp.data.data_size, sizeof(uint16_t));
+	receive_from_connection(pipe_fd, &resp.data.data_size, sizeof(req.data.data_size));
 	sendOK(pipe_fd, (uint8_t *)"OK");
 	receive_from_connection(pipe_fd, resp.data.data, resp.data.data_size);
 	sendOK(pipe_fd, (uint8_t *)"OK");
@@ -228,112 +276,6 @@ void encrypt_authenticate(uint8_t * file)
 		printf ("[CLIENT] Data (\"%s\"):\n%s\n", file, resp.data.data);
 		write_to_file ((uint8_t *)file, resp.data.data, resp.data.data_size);
 	}
-}
-
-// Operation 6: verify signature from data
-void verify_operation()
-{
-	printf("Data filename: ");
-	if ((req.verify.data_size = get_attribute_from_file(req.verify.data)) == 0)
-	{
-		printf ("Some error\n");
-		req.verify.data[0] = 0;
-	}
-
-	// send data size
-	send_to_connection(pipe_fd, &req.verify.data_size, sizeof(req.verify.data_size));
-	if(!waitOK(pipe_fd))
-		return;
-
-	// send data
-	send_to_connection(pipe_fd, req.verify.data, req.verify.data_size);
-	if(!waitOK(pipe_fd))
-		return;
-
-	printf("Signature filename: ");
-	if (get_attribute_from_file(req.verify.signature) == 0)
-		printf ("Some error\n");
-
-	// send data size
-	send_to_connection(pipe_fd, req.verify.signature, SIGNATURE_SIZE);
-	if(!waitOK(pipe_fd))
-		return;
-
-	printf("Entity's ID: ");
-	if (fgets((char *)req.verify.entity_id, ID_SIZE, stdin) == NULL)
-	{
-		printf ("[CLIENT] Error getting ID, try again..\n");
-		req.verify.entity_id[0] = 0;
-	}
-
-	// send entity ID
-	send_to_connection(pipe_fd, req.verify.entity_id, ID_SIZE);
-
-	// Receives encrypt and authenticated data
-	receive_from_connection(pipe_fd, &resp.status, sizeof(uint8_t));
-	sendOK(pipe_fd, (uint8_t *)"OK");
-
-	if (resp.status > 0)
-		printf ("[CLIENT] Signature successfully verified\n");
-	else
-		printf ("[CLIENT] Signature failed verification\n");
-}
-// Operation 7: import public key certificate
-void import_pubkey_operation()
-{
-	printf("Entity's ID: ");
-	if (fgets((char *)req.import_pub.entity_id, ID_SIZE, stdin) == NULL)
-	{
-		printf ("[CLIENT] Error getting ID, try again..\n");
-		req.verify.entity_id[0] = 0;
-	}
-	// send entity ID
-	send_to_connection(pipe_fd, req.import_pub.entity_id, ID_SIZE);
-	if(!waitOK(pipe_fd))
-		return;
-
-	printf("Public key filename: ");
-	if ((req.import_pub.cert_size = get_attribute_from_file(req.import_pub.public_key)) == 0)
-		printf ("Some error\n");
-
-	// Send certificate size
-	send_to_connection(pipe_fd, &req.import_pub.cert_size, sizeof(uint16_t));
-	if(!waitOK(pipe_fd))
-		return;
-
-	// send entity ID
-	send_to_connection(pipe_fd, req.import_pub.public_key, req.import_pub.cert_size);
-	if(!waitOK(pipe_fd))
-		return;
-
-	// Receives status
-	receive_from_connection(pipe_fd, &resp.status, sizeof(uint8_t));
-	sendOK(pipe_fd, (uint8_t *)"OK");
-
-	if (resp.status != 0)
-		printf ("[CLIENT] Public key successfully saved\n");
-}
-
-// Operation 8: Generate new key for sharing
-void new_comms_key()
-{
-	printf("Entity's ID (to share key with): ");
-	if (fgets((char *)req.gen_key.entity_id, ID_SIZE, stdin) == NULL)
-	{
-		printf ("[CLIENT] Error getting ID, try again..\n");
-		req.gen_key.entity_id[0] = 0;
-	}
-	// send entity ID
-	send_to_connection(pipe_fd, req.gen_key.entity_id, ID_SIZE);
-	if(!waitOK(pipe_fd))
-		return;
-
-	receive_from_connection(pipe_fd, &resp.status, sizeof(uint8_t));
-	sendOK(pipe_fd, (uint8_t *)"OK");
-	if (resp.status == 0)
-		printf ("[CLIENT] Key successfully generated and saved with key_id: %s\n", req.gen_key.entity_id);
-	else
-		printf ("[CLIENT] Some error ocurred deriving shared secret\n");
 }
 
 uint32_t get_attribute_from_file (uint8_t * attribute)
