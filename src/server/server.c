@@ -56,7 +56,7 @@ int main (void)
 			case 3: // Encrypt + authenticate data
 			case 4: // Decrypt + authenticate data
 				// Get data size
-				receive_from_connection(pipe_fd, &req.data.data_size, sizeof(uint16_t));
+				receive_from_connection(pipe_fd, &req.data.data_size, sizeof(req.data.data_size));
 				// Check if size is 0
 				if (send_status(pipe_fd, req.data.data_size) == 0)
 					continue;
@@ -72,7 +72,7 @@ int main (void)
 				encrypt_authenticate();
 
 				// Send data result size
-				send_to_connection(pipe_fd, &resp.data.data_size, sizeof(uint16_t));
+				send_to_connection(pipe_fd, &resp.data.data_size, sizeof(resp.data.data_size));
 				waitOK(pipe_fd);
 				// Send data
 				send_to_connection(pipe_fd, resp.data.data, resp.data.data_size);
@@ -139,7 +139,7 @@ int main (void)
 				if (send_status(pipe_fd, req.import_pub.entity_id[0]) == 0)
 					continue;
 				// get certificate size
-				receive_from_connection(pipe_fd, &req.import_pub.cert_size, sizeof(uint16_t));
+				receive_from_connection(pipe_fd, &req.import_pub.cert_size, sizeof(req.import_pub.cert_size));
 				// Check if certificate size is 0
 				if (send_status(pipe_fd, req.import_pub.cert_size) == 0)
 					continue;

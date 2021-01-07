@@ -39,12 +39,12 @@ struct admin_reponse {
 // Data encryption/decryption request, response structures
 struct data_request {
 	uint8_t key_id[ID_SIZE];		// Id of symmetric key to encrypt data
-	uint16_t data_size;
+	uint64_t data_size;
 	uint8_t data[DATA_SIZE];
 };
 
 struct data_response {
-	uint16_t data_size;
+	uint64_t data_size;
 	uint8_t data[DATA_SIZE];
 };
 // ----------------------
@@ -100,7 +100,7 @@ struct verify_response {
 struct import_pub_request {
 	uint8_t entity_id[ID_SIZE];		// ID of entity
 	uint8_t public_key[PUB_KEY_SIZE];	// Public key of the entity
-	uint16_t cert_size;
+	uint32_t cert_size;
 };
 
 struct import_pub_response {

@@ -3,9 +3,10 @@
 int main(void)
 {
 	CK_RV r;
-	CK_MECHANISM sign_mechanism;
+	CK_MECHANISM mechanism;
 	CK_ECDH1_DERIVE_PARAMS ecdh;
 	CK_OBJECT_CLASS class;
+	CK_OBJECT_HANDLE obj;
 	CK_CERTIFICATE_TYPE certType;
 	CK_BBOOL false;
 
@@ -77,10 +78,69 @@ int main(void)
 					printf("[CLIENT] Operation failed \n");
 				break;
 			case 3: // Encrypt and authenticate data
-				encrypt_authenticate((uint8_t *)"data.enc");
-				break;
 			case 4: // Decrypt and authenticate data
-				encrypt_authenticate((uint8_t *)"data.txt");
+
+				printf("Data filename: ");
+				if ((req.data.data_size = get_attribute_from_file(req.data.data)) == 0)
+				{
+					printf ("Some error\n");
+				}
+
+				printf("Key ID to use to encrypt/decrypt data: ");
+				if (fgets((char *)req.data.key_id, ID_SIZE, stdin) == NULL)
+				{
+					printf ("[CLIENT] Error getting ID\n");
+					req.data.key_id[0] = 0; // marks it's invalid
+				}
+
+				class = CKO_SECRET_KEY;
+				certType = CKC_X_509;
+				false = CK_FALSE;
+				CK_ATTRIBUTE template1[] = {
+					{CKA_CLASS, &class, sizeof(class)},
+					{CKA_CERTIFICATE_TYPE, &certType, sizeof(certType)},
+					{CKA_TOKEN, &false, sizeof(false)},
+					{CKA_ID, req.data.key_id, ID_SIZE} };
+
+				r = C_CreateObject (0, template1, 4, &obj);
+
+				mechanism.mechanism = CKM_AES_CTR;
+				mechanism.pParameter = NULL_PTR;
+				mechanism.ulParameterLen = 0;
+
+				r = C_EncryptInit(0, &mechanism, obj);
+				if (r != CKR_OK)
+				{
+					printf("C_EncryptInit Failed: %ld\n", r);
+					continue;
+				}
+				r = C_Encrypt(0, req.data.data, req.data.data_size, resp.data.data, (CK_ULONG_PTR)&resp.data.data_size);
+				if (r != CKR_OK)
+				{
+					printf("C_Encrypt Failed: %ld\n", r);
+					continue;
+				}
+
+				if (resp.data.data_size <= 0 || r != CKR_OK)
+					printf ("Some error ocurred data\n");
+				else if (req.op_code == 3)
+				{
+					// If success, data in resp.data.data
+					resp.data.data[resp.data.data_size] = 0;
+					printf ("[CLIENT] Data (\"data.enc\"):\n%s\n", resp.data.data);
+					write_to_file ((uint8_t *)"data.enc", resp.data.data, resp.data.data_size);
+				}
+				else if (req.op_code == 4)
+				{
+					// If success, data in resp.data.data
+					resp.data.data[resp.data.data_size] = 0;
+					printf ("[CLIENT] Data (\"data.txt\"):\n%s\n", resp.data.data);
+					write_to_file ((uint8_t *)"data.txt", resp.data.data, resp.data.data_size);
+				}
+				// if (req.op_code == 3)
+				//         encrypt_authenticate((uint8_t *)"data.enc");
+				// else // 4
+				//         encrypt_authenticate((uint8_t *)"data.txt");
 				break;
 			case 5:	// Sign message
 				printf("Data filename: ");
@@ -90,11 +150,11 @@ int main(void)
 					req.sign.data[0] = 0;
 				}
 
-				sign_mechanism.mechanism = CKM_ECDSA;
-				sign_mechanism.pParameter = NULL_PTR;
-				sign_mechanism.ulParameterLen = 0;
-				// sign_mechanism = { CKM_ECDSA, NULL_PTR, 0 };
-				r = C_SignInit(0, &sign_mechanism, NULL_PTR);
+				mechanism.mechanism = CKM_ECDSA;
+				mechanism.pParameter = NULL_PTR;
+				mechanism.ulParameterLen = 0;
+				// mechanism = { CKM_ECDSA, NULL_PTR, 0 };
+				r = C_SignInit(0, &mechanism, NULL_PTR);
 				if (r != CKR_OK)
 				{
 					printf("C_SignInit Failed: %ld\n", r);
@@ -128,10 +188,19 @@ int main(void)
 					req.verify.entity_id[0] = 0;
 				}
 
-				sign_mechanism.mechanism = CKM_ECDSA;
-				sign_mechanism.pParameter = NULL_PTR;
-				sign_mechanism.ulParameterLen = 0;
-				r = C_VerifyInit(0, &sign_mechanism, NULL_PTR);
+				class = CKO_DATA;
+				false = CK_FALSE;
+				CK_ATTRIBUTE template2[] = {
+					{CKA_CLASS, &class, sizeof(class)},
+					{CKA_TOKEN, &false, sizeof(false)},
+					{CKA_ID, req.verify.entity_id, ID_SIZE} };
+
+				r = C_CreateObject (0, template2, 3, &obj);
+
+				mechanism.mechanism = CKM_ECDSA;
+				mechanism.pParameter = NULL_PTR;
+				mechanism.ulParameterLen = 0;
+				r = C_VerifyInit(0, &mechanism, obj);
 				if (r != CKR_OK)
 				{
 					printf("C_VerifyInit Failed: %ld\n", r);
@@ -234,48 +303,6 @@ int main(void)
 // Operation 4: decrypt + authenticate
 void encrypt_authenticate(uint8_t * file)
 {
-	printf("Data filename: ");
-	if ((req.data.data_size = get_attribute_from_file(req.data.data)) == 0)
-	{
-		printf ("Some error\n");
-	}
-
-	// send data size
-	send_to_connection(pipe_fd, &req.data.data_size, sizeof(req.data.data_size));
-	if (!waitOK(pipe_fd))
-		return;
-
-	// send data
-	send_to_connection(pipe_fd, req.data.data, req.data.data_size);
-	if (!waitOK(pipe_fd))
-		return;
-
-	printf("Key ID to use to encrypt/decrypt data: ");
-	if (fgets((char *)req.data.key_id, ID_SIZE, stdin) == NULL)
-	{
-		printf ("[CLIENT] Error getting ID\n");
-		req.data.key_id[0] = 0; // marks it's invalid
-	}
-
-	send_to_connection(pipe_fd, req.data.key_id, ID_SIZE); // send key ID
-	if (!waitOK(pipe_fd))
-		return;
-
-	// Receives encrypt and authenticated data
-	receive_from_connection(pipe_fd, &resp.data.data_size, sizeof(req.data.data_size));
-	sendOK(pipe_fd, (uint8_t *)"OK");
-	receive_from_connection(pipe_fd, resp.data.data, resp.data.data_size);
-	sendOK(pipe_fd, (uint8_t *)"OK");
-
-	if (resp.data.data_size <= 0)
-		printf ("Some error ocurred data\n");
-	else
-	{
-		// If success, data in resp.data.data
-		resp.data.data[resp.data.data_size] = 0;
-		printf ("[CLIENT] Data (\"%s\"):\n%s\n", file, resp.data.data);
-		write_to_file ((uint8_t *)file, resp.data.data, resp.data.data_size);
-	}
 }
 
 uint32_t get_attribute_from_file (uint8_t * attribute)
