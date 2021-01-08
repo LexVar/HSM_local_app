@@ -932,7 +932,7 @@ CK_PKCS11_FUNCTION_INFO(HSM_C_ChooseOpCode)
 #ifdef CK_NEED_ARG_LIST
 (
   CK_SLOT_ID_PTR pSlot, /* location that receives the slot ID */
-  CK_BYTE_PTR opcode	/* Where the chosen operation code will be saved */
+  CK_BYTE opcode	/* Where the chosen operation code will be saved */
 );
 #endif
 

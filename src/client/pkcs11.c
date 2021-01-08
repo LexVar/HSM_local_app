@@ -42,7 +42,8 @@ typedef struct p11_object_s {
 
 typedef struct p11_session_s {
 	CK_SESSION_INFO_PTR session;
-	int operation[P11_NUM_OPS];
+	CK_BYTE operation[P11_NUM_OPS];
+	CK_BYTE op_code;
 
 	p11_object obj; // Object - array of atrributes
 } p11_session;
@@ -161,7 +162,13 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs)
 
 CK_DEFINE_FUNCTION(CK_RV, C_Finalize)(CK_VOID_PTR pReserved)
 {
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	if (pReserved != NULL_PTR)
+		return CKR_ARGUMENTS_BAD;
+
+
+	init = CK_FALSE;
+
+	return CKR_OK;
 }
 
 
@@ -233,7 +240,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetPIN)(CK_SESSION_HANDLE hSession, CK_UTF8CHAR_PTR 
 	// Get session
 	//
 	
-	if(HSM_C_ChooseOpCode(0, &req.op_code) != CKR_OK)
+	if(HSM_C_ChooseOpCode(0, 2) != CKR_OK)
 		return CKF_LOGIN_REQUIRED;
 
 	send_to_connection(pipe_fd, pOldPin, ulOldLen);
@@ -296,7 +303,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)(CK_SESSION_HANDLE hSession, CK_USER_TYPE user
 	// Get session
 	//
 	
-	HSM_C_ChooseOpCode(0, &req.op_code);
+	HSM_C_ChooseOpCode(0, 1);
 	// if (ret != CKR_OK)
 	//         return ret;
 
@@ -317,7 +324,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Logout)(CK_SESSION_HANDLE hSession)
 	if (!init)
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 
-	if(HSM_C_ChooseOpCode(0, &req.op_code) != CKR_OK)
+	if(HSM_C_ChooseOpCode(0, 10) != CKR_OK)
 		return CKF_LOGIN_REQUIRED;
 
 	printf ("[CLIENT] Sending logout request\n");
@@ -419,9 +426,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsFinal)(CK_SESSION_HANDLE hSession)
 
 
 // Operation 3: encrypt + authenticate
-// Operation 4: decrypt + authenticate
 CK_DEFINE_FUNCTION(CK_RV, C_EncryptInit)(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism, CK_OBJECT_HANDLE hKey)
 {
+	s.op_code = 3;
 	if (!init)
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 
@@ -446,7 +453,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Encrypt)(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pDa
 	if (s.operation[P11_OP_ENCRYPT] != 1)
 		return CKR_OPERATION_NOT_INITIALIZED;
 
-	if(HSM_C_ChooseOpCode(0, &req.op_code) != CKR_OK)
+	if(HSM_C_ChooseOpCode(0, s.op_code) != CKR_OK)
 		return CKF_LOGIN_REQUIRED;
 	// send data size
 	send_to_connection(pipe_fd, &ulDataLen, sizeof(ulDataLen));
@@ -494,15 +501,30 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptFinal)(CK_SESSION_HANDLE hSession, CK_BYTE_PT
 }
 
 
+// Operation 4: decrypt + authenticate
 CK_DEFINE_FUNCTION(CK_RV, C_DecryptInit)(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism, CK_OBJECT_HANDLE hKey)
 {
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	s.op_code = 4;
+	if (!init)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+
+	if (pMechanism->mechanism != CKM_AES_CTR)
+		return CKR_MECHANISM_INVALID;
+
+	if (hKey != 1)
+		return CKR_KEY_HANDLE_INVALID;
+
+	// set operation flag
+	s.operation[P11_OP_ENCRYPT] = 1;
+
+	return CKR_OK;
 }
 
 
+// Decryption is the same to encrypt with AES CTR mode
 CK_DEFINE_FUNCTION(CK_RV, C_Decrypt)(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pEncryptedData, CK_ULONG ulEncryptedDataLen, CK_BYTE_PTR pData, CK_ULONG_PTR pulDataLen)
 {
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	return C_Encrypt(hSession, pEncryptedData, ulEncryptedDataLen, pData, pulDataLen);
 }
 
 
@@ -574,7 +596,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Sign)(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pData,
 	if (!init)
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 
-	if(HSM_C_ChooseOpCode(0, &req.op_code) != CKR_OK)
+	if(HSM_C_ChooseOpCode(0, 5) != CKR_OK)
 		return CKF_LOGIN_REQUIRED;
 	// send data size
 	send_to_connection(pipe_fd, &ulDataLen, sizeof(ulDataLen));
@@ -591,7 +613,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Sign)(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pData,
 		return CKR_FUNCTION_FAILED;
 
 	// Receives encrypt and authenticated data
-	receive_from_connection(pipe_fd, pSignature, SIGNATURE_SIZE);
+	receive_from_connection(pipe_fd, pSignature, *pulSignatureLen);
 	sendOK(pipe_fd, (uint8_t *)"OK");
 
 	return CKR_OK;
@@ -650,7 +672,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Verify)(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pDat
 	if (s.operation[P11_OP_VERIFY] == 0)
 		return CKF_LOGIN_REQUIRED;
 
-	if(HSM_C_ChooseOpCode(0, &req.op_code) != CKR_OK)
+	if(HSM_C_ChooseOpCode(0, 6) != CKR_OK)
 		return CKF_LOGIN_REQUIRED;
 
 	// send data size
@@ -797,7 +819,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DeriveKey)(CK_SESSION_HANDLE hSession, CK_MECHANISM_
 	if (pTemplate != NULL)
 		return CKR_ATTRIBUTE_VALUE_INVALID;
 
-	if(HSM_C_ChooseOpCode(0, &req.op_code) != CKR_OK)
+	if(HSM_C_ChooseOpCode(0, 8) != CKR_OK)
 		return CKF_LOGIN_REQUIRED;
 
 	// send entity ID
@@ -852,7 +874,7 @@ CK_DEFINE_FUNCTION(CK_RV, HSM_C_GetKeyList)(CK_SLOT_ID_PTR pSlot, CK_BYTE_PTR li
 
 	// Get session
 
-	if(HSM_C_ChooseOpCode(0, &req.op_code) != CKR_OK)
+	if(HSM_C_ChooseOpCode(0, 9) != CKR_OK)
 		return CKF_LOGIN_REQUIRED;
 
 	receive_from_connection(pipe_fd, list, DATA_SIZE);
@@ -861,7 +883,7 @@ CK_DEFINE_FUNCTION(CK_RV, HSM_C_GetKeyList)(CK_SLOT_ID_PTR pSlot, CK_BYTE_PTR li
 	return CKR_OK;
 }
 
-CK_DEFINE_FUNCTION(CK_RV, HSM_C_ChooseOpCode)(CK_SLOT_ID_PTR pSlot, CK_BYTE_PTR opcode)
+CK_DEFINE_FUNCTION(CK_RV, HSM_C_ChooseOpCode)(CK_SLOT_ID_PTR pSlot, CK_BYTE opcode)
 {
 	CK_BYTE r;
 	if (!init)
@@ -875,7 +897,7 @@ CK_DEFINE_FUNCTION(CK_RV, HSM_C_ChooseOpCode)(CK_SLOT_ID_PTR pSlot, CK_BYTE_PTR 
 
 	// Send op code and wait for confirmation
 	// If error occurs, user must choose code:1 and authenticate with PIN
-	send_to_connection(pipe_fd, opcode, sizeof(CK_BYTE));
+	send_to_connection(pipe_fd, &opcode, sizeof(CK_BYTE));
 	if (!waitOK(pipe_fd))
 	{
 		r = CKF_LOGIN_REQUIRED;
@@ -883,8 +905,7 @@ CK_DEFINE_FUNCTION(CK_RV, HSM_C_ChooseOpCode)(CK_SLOT_ID_PTR pSlot, CK_BYTE_PTR 
 	else
 		r = CKR_OK;
 
-	// r = HSM_C_ChooseOpCode(0, &req.op_code);
-	if (r == CKF_LOGIN_REQUIRED && req.op_code != 1)
+	if (r == CKF_LOGIN_REQUIRED && opcode != 1)
 	{
 		printf ("NOT AUTHENTICATED\n");
 		return r;
@@ -910,7 +931,7 @@ CK_DEFINE_FUNCTION(CK_RV, HSM_C_SaveObject)(CK_OBJECT_HANDLE phObject)
 	if (s.obj.oClass != CKO_CERTIFICATE || s.obj.oType != CKC_X_509 || s.obj.oToken != CK_FALSE)
 		return CKR_MECHANISM_INVALID;
 
-	if(HSM_C_ChooseOpCode(0, &req.op_code) != CKR_OK)
+	if(HSM_C_ChooseOpCode(0, 7) != CKR_OK)
 		return CKF_LOGIN_REQUIRED;
 
 	// send entity ID

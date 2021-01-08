@@ -206,6 +206,9 @@ uint32_t decrypt(uint8_t * in, uint32_t inlen, uint8_t * out, uint8_t * key_file
 	uint8_t * mac_key;
 	uint32_t total_bytes = 0;
 
+	if (inlen <= AES_BLOCK_SIZE+MAC_SIZE)
+		return 0;
+
 	// read key from file
 	if (read_key(key, key_file, 2*KEY_SIZE) == 0)
 		return 0;
@@ -219,8 +222,10 @@ uint32_t decrypt(uint8_t * in, uint32_t inlen, uint8_t * out, uint8_t * key_file
 	concatenate (iv, in+MAC_SIZE, 0, AES_BLOCK_SIZE);
 
 	total_bytes = inlen - MAC_SIZE - AES_BLOCK_SIZE;
+
 	/* Concatenate iv+ciphertext to compute mac */
 	concatenate (iv_cipher, iv, 0, AES_BLOCK_SIZE);
+	printf ("ivc %s...\n", iv_cipher);
 	concatenate (iv_cipher, ciphertext, AES_BLOCK_SIZE, total_bytes);
 
 	/* compute mac from IV+CIPHER */

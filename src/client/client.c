@@ -39,7 +39,8 @@ int main(void)
 				if (fgets((char *)req.auth.pin, PIN_SIZE, stdin) == NULL)
 				{
 					printf ("[CLIENT] Error getting PIN, try again..\n");
-					return 0;
+					continue;
+					// return 0;
 				}
 				flush_stdin();
 
@@ -78,13 +79,15 @@ int main(void)
 				if ((req.data.data_size = get_attribute_from_file(req.data.data)) == 0)
 				{
 					printf ("Some error\n");
+					continue;
 				}
 
 				printf("Key ID to use to encrypt/decrypt data: ");
 				if (fgets((char *)req.data.key_id, ID_SIZE, stdin) == NULL)
 				{
 					printf ("[CLIENT] Error getting ID\n");
-					req.data.key_id[0] = 0; // marks it's invalid
+					continue;
+					// req.data.key_id[0] = 0; // marks it's invalid
 				}
 
 				class = CKO_SECRET_KEY;
@@ -102,13 +105,19 @@ int main(void)
 				mechanism.pParameter = NULL_PTR;
 				mechanism.ulParameterLen = 0;
 
-				r = C_EncryptInit(0, &mechanism, obj);
+				if (req.op_code == 3)
+					r = C_EncryptInit(0, &mechanism, obj);
+				else
+					r = C_DecryptInit(0, &mechanism, obj);
 				if (r != CKR_OK)
 				{
 					printf("C_EncryptInit Failed: %ld\n", r);
 					continue;
 				}
-				r = C_Encrypt(0, req.data.data, req.data.data_size, resp.data.data, (CK_ULONG_PTR)&resp.data.data_size);
+				if (req.op_code == 3)
+					r = C_Encrypt(0, req.data.data, req.data.data_size, resp.data.data, (CK_ULONG_PTR)&resp.data.data_size);
+				else
+					r = C_Decrypt(0, req.data.data, req.data.data_size, resp.data.data, (CK_ULONG_PTR)&resp.data.data_size);
 				if (r != CKR_OK)
 				{
 					printf("C_Encrypt Failed: %ld\n", r);
@@ -141,7 +150,8 @@ int main(void)
 				if ((req.sign.data_size = get_attribute_from_file(req.sign.data)) == 0)
 				{
 					printf("Some error\n");
-					req.sign.data[0] = 0;
+					continue;
+					// req.sign.data[0] = 0;
 				}
 
 				mechanism.mechanism = CKM_ECDSA;
@@ -154,7 +164,8 @@ int main(void)
 					printf("C_SignInit Failed: %ld\n", r);
 					continue;
 				}
-				r = C_Sign(0, req.sign.data, req.sign.data_size, resp.sign.signature, NULL);
+				CK_ULONG sig_size = SIGNATURE_SIZE;
+				r = C_Sign(0, req.sign.data, req.sign.data_size, resp.sign.signature, &sig_size);
 				if (r != CKR_OK)
 				{
 					printf("C_Sign Failed: %ld\n", r);
@@ -168,18 +179,23 @@ int main(void)
 				if ((req.verify.data_size = get_attribute_from_file(req.verify.data)) == 0)
 				{
 					printf ("Some error\n");
-					req.verify.data[0] = 0;
+					continue;
+					// req.verify.data[0] = 0;
 				}
 
 				printf("Signature filename: ");
 				if (get_attribute_from_file(req.verify.signature) == 0)
+				{
 					printf ("Some error\n");
+					continue;
+				}
 
 				printf("Entity's ID: ");
 				if (fgets((char *)req.verify.entity_id, ID_SIZE, stdin) == NULL)
 				{
 					printf ("[CLIENT] Error getting ID, try again..\n");
-					req.verify.entity_id[0] = 0;
+					continue;
+					// req.verify.entity_id[0] = 0;
 				}
 
 				class = CKO_DATA;
@@ -216,12 +232,16 @@ int main(void)
 				if (fgets((char *)req.import_pub.entity_id, ID_SIZE, stdin) == NULL)
 				{
 					printf ("[CLIENT] Error getting ID, try again..\n");
-					req.verify.entity_id[0] = 0;
+					continue;
+					// req.verify.entity_id[0] = 0;
 				}
 
 				printf("Public key filename: ");
 				if ((req.import_pub.cert_size = get_attribute_from_file(req.import_pub.public_key)) == 0)
-					printf ("Some error\n");
+				{
+					printf ("Some error stdin\n");
+					continue;
+				}
 
 				class = CKO_CERTIFICATE;
 				certType = CKC_X_509;
@@ -249,7 +269,8 @@ int main(void)
 				if (fgets((char *)req.gen_key.entity_id, ID_SIZE, stdin) == NULL)
 				{
 					printf ("[CLIENT] Error getting ID, try again..\n");
-					req.gen_key.entity_id[0] = 0;
+					continue;
+					// req.gen_key.entity_id[0] = 0;
 				}
 				// Set ECDH mechanisms and sha256 key derivation
 				ecdh.kdf = CKM_SHA256_KEY_DERIVATION;
@@ -285,7 +306,7 @@ int main(void)
 				exit(0);
 				break;
 			default:
-				waitOK(pipe_fd);
+				// waitOK(pipe_fd);
 				printf("\n[CLIENT] %d. Is not a valid operation\n", req.op_code);
 		}
 	}
