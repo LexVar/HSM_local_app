@@ -82,7 +82,7 @@ void *map_file(FILE *fp, size_t len)
     return buf;
 }
 
-uint32_t sign_data(uint8_t * data, uint32_t data_size, uint8_t * privkey, uint8_t * signature)
+uint32_t sign_data(uint8_t * data, uint32_t data_size, uint8_t * privkey, uint8_t * signature, uint32_t *signlen)
 {
     uint8_t *hash, *sig;
     uint32_t hashlen;
@@ -101,6 +101,7 @@ uint32_t sign_data(uint8_t * data, uint32_t data_size, uint8_t * privkey, uint8_
         return -1;
     }
 
+    *signlen = siglen;
     memcpy(signature, sig, siglen);
     free(sig);
     free(hash);

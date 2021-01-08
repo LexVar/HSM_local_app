@@ -9,14 +9,30 @@ int main(void)
 	CK_OBJECT_HANDLE obj;
 	CK_CERTIFICATE_TYPE certType;
 	CK_BBOOL false;
-
+	CK_ULONG pinlen;
 	// Redirects SIGINT (CTRL-c) to cleanup()
 	signal(SIGINT, cleanup);
 
 	if (C_Initialize(NULL) != CKR_OK)
 	{
 		printf("C_Initialize - error ocurred\n");
-		exit(-1);
+		exit(1);
+	}
+
+	r = C_InitToken(0, NULL, 0, NULL_PTR);
+	if (r != CKR_OK)
+	{
+		printf("C_InitToken Failed: %ld\n", r);
+		return 1;
+	}
+
+	CK_BYTE application = 1;
+	CK_SESSION_HANDLE phSession;
+	r = C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, (CK_VOID_PTR)&application, NULL_PTR, &phSession);
+	if (r != CKR_OK)
+	{
+		printf("C_OpenSession Failed: %ld\n", r);
+		return 1;
 	}
 
 	while (1) {
@@ -42,32 +58,31 @@ int main(void)
 					continue;
 					// return 0;
 				}
-				flush_stdin();
+				pinlen = strlen((char *)req.auth.pin)-1;
+				req.auth.pin[pinlen] = 0;
+				// flush_stdin();
 
-				if (C_Login(0, 0, req.auth.pin, PIN_SIZE) == CKR_OK)
+				r = C_Login(phSession, 0, req.auth.pin, pinlen);
+				if (r == CKR_OK)
 					printf("[CLIENT] Authentication SUCCESS\n");
+				else if (r == CKR_PIN_INVALID)
+					printf("[CLIENT] PIN invalid\n");
 				else
 					printf("[CLIENT] Authentication failed\n");
 
 				break;
 			case 2:	// Change authentication PIN
-				printf("Old PIN: ");
-				if (fgets((char *)req.auth.pin, PIN_SIZE, stdin) == NULL)
-				{
-					printf ("[CLIENT] Error getting PIN, try again..\n");
-					continue;
-				}
-				flush_stdin();
-
 				printf("New PIN: ");
 				if (fgets((char *)req.admin.pin, PIN_SIZE, stdin) == NULL)
 				{
 					printf ("[CLIENT] Error getting PIN, try again..\n");
 					continue;
 				}
-				flush_stdin();
+				CK_ULONG pinlen2 = strlen((char *)req.admin.pin)-1;
+				req.admin.pin[pinlen] = 0;
+				// flush_stdin();
 
-				if (C_SetPIN(0, req.auth.pin, PIN_SIZE, req.admin.pin, PIN_SIZE) == CKR_OK)
+				if (C_SetPIN(phSession, NULL, 0, req.admin.pin, pinlen2) == CKR_OK)
 					printf("[CLIENT] PIN succesfully set\n");
 				else
 					printf("[CLIENT] Operation failed \n");
@@ -99,25 +114,25 @@ int main(void)
 					{CKA_TOKEN, &false, sizeof(false)},
 					{CKA_ID, req.data.key_id, ID_SIZE} };
 
-				r = C_CreateObject (0, template1, 4, &obj);
+				r = C_CreateObject (phSession, template1, 4, &obj);
 
 				mechanism.mechanism = CKM_AES_CTR;
 				mechanism.pParameter = NULL_PTR;
 				mechanism.ulParameterLen = 0;
 
 				if (req.op_code == 3)
-					r = C_EncryptInit(0, &mechanism, obj);
+					r = C_EncryptInit(phSession, &mechanism, obj);
 				else
-					r = C_DecryptInit(0, &mechanism, obj);
+					r = C_DecryptInit(phSession, &mechanism, obj);
 				if (r != CKR_OK)
 				{
 					printf("C_EncryptInit Failed: %ld\n", r);
 					continue;
 				}
 				if (req.op_code == 3)
-					r = C_Encrypt(0, req.data.data, req.data.data_size, resp.data.data, (CK_ULONG_PTR)&resp.data.data_size);
+					r = C_Encrypt(phSession, req.data.data, req.data.data_size, resp.data.data, (CK_ULONG_PTR)&resp.data.data_size);
 				else
-					r = C_Decrypt(0, req.data.data, req.data.data_size, resp.data.data, (CK_ULONG_PTR)&resp.data.data_size);
+					r = C_Decrypt(phSession, req.data.data, req.data.data_size, resp.data.data, (CK_ULONG_PTR)&resp.data.data_size);
 				if (r != CKR_OK)
 				{
 					printf("C_Encrypt Failed: %ld\n", r);
@@ -158,21 +173,20 @@ int main(void)
 				mechanism.pParameter = NULL_PTR;
 				mechanism.ulParameterLen = 0;
 				// mechanism = { CKM_ECDSA, NULL_PTR, 0 };
-				r = C_SignInit(0, &mechanism, NULL_PTR);
+				r = C_SignInit(phSession, &mechanism, NULL_PTR);
 				if (r != CKR_OK)
 				{
 					printf("C_SignInit Failed: %ld\n", r);
 					continue;
 				}
-				CK_ULONG sig_size = SIGNATURE_SIZE;
-				r = C_Sign(0, req.sign.data, req.sign.data_size, resp.sign.signature, &sig_size);
+				r = C_Sign(phSession, req.sign.data, req.sign.data_size, resp.sign.signature, (CK_ULONG_PTR)&resp.sign.signlen);
 				if (r != CKR_OK)
 				{
 					printf("C_Sign Failed: %ld\n", r);
 					continue;
 				}
 				printf ("[CLIENT] Signature: (\"signature.txt\"):\n%s\n", resp.sign.signature);
-				write_to_file ((uint8_t *)"signature.txt", resp.sign.signature, SIGNATURE_SIZE);
+				write_to_file ((uint8_t *)"signature.txt", resp.sign.signature, resp.sign.signlen);
 				break;
 			case 6:	// Sign message
 				printf("Data filename: ");
@@ -184,7 +198,7 @@ int main(void)
 				}
 
 				printf("Signature filename: ");
-				if (get_attribute_from_file(req.verify.signature) == 0)
+				if ((req.verify.signlen = get_attribute_from_file(req.verify.signature)) == 0)
 				{
 					printf ("Some error\n");
 					continue;
@@ -205,18 +219,18 @@ int main(void)
 					{CKA_TOKEN, &false, sizeof(false)},
 					{CKA_ID, req.verify.entity_id, ID_SIZE} };
 
-				r = C_CreateObject (0, template2, 3, &obj);
+				r = C_CreateObject (phSession, template2, 3, &obj);
 
 				mechanism.mechanism = CKM_ECDSA;
 				mechanism.pParameter = NULL_PTR;
 				mechanism.ulParameterLen = 0;
-				r = C_VerifyInit(0, &mechanism, obj);
+				r = C_VerifyInit(phSession, &mechanism, obj);
 				if (r != CKR_OK)
 				{
 					printf("C_VerifyInit Failed: %ld\n", r);
 					continue;
 				}
-				r = C_Verify(0, req.verify.data, req.verify.data_size, req.verify.signature, SIGNATURE_SIZE);
+				r = C_Verify(phSession, req.verify.data, req.verify.data_size, req.verify.signature, req.verify.signlen);
 				if (r != CKR_OK)
 				{
 					printf("C_Verify Failed: %lx\n", r);
@@ -256,7 +270,7 @@ int main(void)
 					{CKA_VALUE, req.import_pub.public_key, req.import_pub.cert_size} };
 
 				// The handle is null since the certificate will not be saved locally, only HSM
-				r = C_CreateObject (0, template, 5, &obj);
+				r = C_CreateObject (phSession, template, 5, &obj);
 
 				if (r != CKR_OK)
 					printf ("[CLIENT] Error saving certificate\n");
@@ -283,7 +297,7 @@ int main(void)
 				mechanism.ulParameterLen = sizeof(CK_ECDH1_DERIVE_PARAMS);
 				mechanism.mechanism = CKM_ECDH1_DERIVE; 
 
-				r = C_DeriveKey(0, &mechanism, 0, NULL, 0, NULL);
+				r = C_DeriveKey(phSession, &mechanism, 0, NULL, 0, NULL);
 				if (r != CKR_OK)
 				{
 					printf("C_Derive Failed: %lx\n", r);
@@ -293,16 +307,18 @@ int main(void)
 					printf ("[CLIENT] Key successfully generated and saved with key_id: %s\n", req.gen_key.entity_id);
 				break;
 			case 9: // Get available symmetric key list
-				if (HSM_C_GetKeyList(0, resp.list.list) == CKR_OK)
+				if (HSM_C_GetKeyList(phSession, resp.list.list) == CKR_OK)
 					printf("List of keys:\n%s\n", resp.list.list);
 				else
 					printf("Function error \n");
 				break;
 			case 10: // Logout request
-				C_Logout(0);
+				C_Logout(phSession);
 				break;
 			case 0:
 				printf("[CLIENT] Stopping client..\n");
+				C_CloseSession(phSession);
+				C_Finalize(NULL_PTR);
 				exit(0);
 				break;
 			default:
@@ -349,6 +365,17 @@ Operation: ";
 
 void cleanup()
 {
+	// if (C_CloseSession(NULL) != CKR_OK)
+	// {
+	//         printf("C_Initialize - error ocurred\n");
+	//         exit(-1);
+	// }
+	if (C_Initialize(NULL) != CKR_OK)
+	{
+		printf("C_Initialize - error ocurred\n");
+		exit(-1);
+	}
+
 	printf ("\n[CLIENT] Cleaning up...\n");
 	/* place all cleanup operations here */
 	close(pipe_fd);

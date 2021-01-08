@@ -41,16 +41,19 @@ int main (void)
 				break;
 			case 2: // Change PIN
 				// authenticate old PIN
-				receive_from_connection(pipe_fd, req.auth.pin, PIN_SIZE);
+				// receive_from_connection(pipe_fd, req.auth.pin, PIN_SIZE-2);
 
-				resp.status = compare_strings(req.auth.pin, AUTH_PIN, PIN_SIZE);
+				// resp.status = !compare_strings(req.auth.pin, AUTH_PIN, PIN_SIZE-2);
 				// if it was not authenticated for change, return
-				if (send_status(pipe_fd, resp.status) == 0)
-					continue;
+				// send_to_connection(pipe_fd, &resp.status, sizeof(uint8_t));
+				// if (!resp.status)
+					// continue;
+				// if (send_status(pipe_fd, resp.status) == 0)
+				//         continue;
 
 				// Get new PIN and change it
-				receive_from_connection(pipe_fd, req.admin.pin, PIN_SIZE);
-				memcpy(AUTH_PIN, req.admin.pin, PIN_SIZE); // Save PIN
+				receive_from_connection(pipe_fd, req.admin.pin, PIN_SIZE-2);
+				memcpy(AUTH_PIN, req.admin.pin, PIN_SIZE-2); // Save PIN
 				sendOK(pipe_fd, (uint8_t *)"OK");
 				break;
 			case 3: // Encrypt + authenticate data
@@ -101,8 +104,12 @@ int main (void)
 
 				if (resp.status != 0)
 					continue;
+
+				// Send signature size
+				send_to_connection(pipe_fd, &resp.sign.signlen, sizeof(resp.sign.signlen));
+				waitOK(pipe_fd);
 				// if status is good, send signature
-				send_to_connection(pipe_fd, resp.sign.signature, SIGNATURE_SIZE);
+				send_to_connection(pipe_fd, resp.sign.signature, resp.sign.signlen);
 				waitOK(pipe_fd);
 				break;
 			case 6: // Verify signature
@@ -116,8 +123,12 @@ int main (void)
 				receive_from_connection(pipe_fd, req.verify.data, req.verify.data_size);
 				sendOK(pipe_fd, (uint8_t *)"OK");
 
+				// Get signature size
+				receive_from_connection(pipe_fd, &req.verify.signlen, sizeof(req.verify.signlen));
+				sendOK(pipe_fd, (uint8_t *)"OK");
+
 				// Get signature
-				receive_from_connection(pipe_fd, req.verify.signature, SIGNATURE_SIZE);
+				receive_from_connection(pipe_fd, req.verify.signature, req.verify.signlen);
 				sendOK(pipe_fd, (uint8_t *)"OK");
 
 				// Get entity ID who signed the data
@@ -269,7 +280,7 @@ void encrypt_authenticate()
 // Operation 5: sign data
 void sign_operation ()
 {
-	resp.status = sign_data(req.sign.data, req.sign.data_size, (uint8_t *)PRIVATE_KEY, resp.sign.signature);
+	resp.status = sign_data(req.sign.data, req.sign.data_size, (uint8_t *)PRIVATE_KEY, resp.sign.signature, &resp.sign.signlen);
 	if (resp.status == 0)
 		printf ("[SERVER] Data succesfully signed\n");
 	else
@@ -284,7 +295,7 @@ void verify_operation()
 	// Get key path from secure storage
 	get_key_path(req.verify.entity_id, keyfile, (uint8_t *)".cert");
 
-	resp.status = verify_data(req.verify.data, req.verify.data_size, keyfile, req.verify.signature, SIGNATURE_SIZE);
+	resp.status = verify_data(req.verify.data, req.verify.data_size, keyfile, req.verify.signature, req.verify.signlen);
 	if (resp.status > 0)
 		printf ("[SERVER] Signature verified successfully\n");
 	else
