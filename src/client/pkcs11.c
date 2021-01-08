@@ -36,7 +36,7 @@ typedef struct p11_object_s {
 	CK_BBOOL oToken;
 	CK_BYTE id[ID_SIZE];
 	CK_BYTE id_size;
-	CK_BYTE_PTR oValue;
+	CK_BYTE oValue[PUB_KEY_SIZE];
 	CK_ULONG oValueLen;
 } p11_object;
 
@@ -233,6 +233,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetPIN)(CK_SESSION_HANDLE hSession, CK_UTF8CHAR_PTR 
 	// Get session
 	//
 	
+	if(HSM_C_ChooseOpCode(0, &req.op_code) != CKR_OK)
+		return CKF_LOGIN_REQUIRED;
+
 	send_to_connection(pipe_fd, pOldPin, ulOldLen);
 
 	if (!waitOK(pipe_fd))
@@ -293,6 +296,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)(CK_SESSION_HANDLE hSession, CK_USER_TYPE user
 	// Get session
 	//
 	
+	HSM_C_ChooseOpCode(0, &req.op_code);
+	// if (ret != CKR_OK)
+	//         return ret;
+
 	send_to_connection(pipe_fd, pPin, ulPinLen);
 
 	receive_from_connection(pipe_fd, &status, sizeof(CK_BYTE));
@@ -307,7 +314,16 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)(CK_SESSION_HANDLE hSession, CK_USER_TYPE user
 
 CK_DEFINE_FUNCTION(CK_RV, C_Logout)(CK_SESSION_HANDLE hSession)
 {
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	if (!init)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+
+	if(HSM_C_ChooseOpCode(0, &req.op_code) != CKR_OK)
+		return CKF_LOGIN_REQUIRED;
+
+	printf ("[CLIENT] Sending logout request\n");
+	waitOK(pipe_fd);
+
+	return CKR_OK;
 }
 
 
@@ -317,79 +333,39 @@ CK_DEFINE_FUNCTION(CK_RV, C_Logout)(CK_SESSION_HANDLE hSession)
 CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)(CK_SESSION_HANDLE hSession, CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount, CK_OBJECT_HANDLE_PTR phObject)
 {
 	CK_LONG p = 0;
-	CK_BYTE error = 0, r, status;
+	CK_BYTE r;
 
 	if (!init)
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	if (pTemplate == NULL_PTR)
 		return CKR_ARGUMENTS_BAD;
 
+	for (p = 0; p < ulCount; p++)
+	{
+		if (pTemplate[p].type == CKA_CLASS)
+			s.obj.oClass = *((CK_BYTE_PTR)pTemplate[p].pValue);
+		else if (pTemplate[p].type == CKA_CERTIFICATE_TYPE || pTemplate[p].type == CKA_KEY_TYPE)
+			s.obj.oType = *((CK_BYTE_PTR)pTemplate[p].pValue);
+		else if (pTemplate[p].type == CKA_TOKEN)
+			s.obj.oToken = *((CK_BYTE_PTR)pTemplate[p].pValue);
+		else if (pTemplate[p].type == CKA_ID)
+		{
+			memcpy (s.obj.id, pTemplate[p].pValue, pTemplate[p].ulValueLen);
+			s.obj.id_size = pTemplate[p].ulValueLen;
+		}
+		else if (pTemplate[p].type == CKA_VALUE && sizeof(s.obj.oValue) >= pTemplate[p].ulValueLen)
+		{
+			memcpy (s.obj.oValue, pTemplate[p].pValue, pTemplate[p].ulValueLen);
+			s.obj.oValueLen = pTemplate[p].ulValueLen;
+		}
+	}
+	*phObject = 1;
+	r = CKR_OK;
+
 	// if its to store on the server - its a certificate
-	if (phObject == NULL)
-	{
-		for (p = 0; p < ulCount; p++)
-		{
-			if (pTemplate[p].type == CKA_CLASS && *((CK_BYTE_PTR)pTemplate[p].pValue) != CKO_CERTIFICATE)
-				error = 1;
-			else if (pTemplate[p].type == CKA_CERTIFICATE_TYPE && *((CK_BYTE_PTR)pTemplate[p].pValue) != CKC_X_509)
-				error = 1;
-			else if (pTemplate[p].type == CKA_TOKEN && *((CK_BYTE_PTR)pTemplate[p].pValue) != CK_FALSE)
-				error = 1;
-			else if (pTemplate[p].type == CKA_ID)
-			{
-				if (error) *((CK_BYTE_PTR)pTemplate[p].pValue) = 0;
-				// send entity ID
-				send_to_connection(pipe_fd, pTemplate[p].pValue, pTemplate[p].ulValueLen);
-				if(!waitOK(pipe_fd))
-					return CKR_FUNCTION_FAILED;
-			}
-			else if (pTemplate[p].type == CKA_VALUE)
-			{
-				if (error) pTemplate[p].ulValueLen = 0;
+	if (r == CKR_OK && s.obj.oType == CKC_X_509)
+		return HSM_C_SaveObject(*phObject);
 
-				// Send certificate size
-				send_to_connection(pipe_fd, &pTemplate[p].ulValueLen, sizeof(pTemplate[p].ulValueLen));
-				if(!waitOK(pipe_fd))
-					return CKR_FUNCTION_FAILED;
-				// send certificate
-				send_to_connection(pipe_fd, pTemplate[p].pValue, pTemplate[p].ulValueLen);
-				if(!waitOK(pipe_fd))
-					return CKR_FUNCTION_FAILED;
-			}
-		}
-		// Receives status
-		receive_from_connection(pipe_fd, &status, sizeof(uint8_t));
-		sendOK(pipe_fd, (uint8_t *)"OK");
-
-		if (status != 0)
-			r = CKR_OK;
-		else
-			r = CKR_FUNCTION_FAILED;
-	}
-	else
-	{
-		for (p = 0; p < ulCount; p++)
-		{
-			if (pTemplate[p].type == CKA_CLASS)
-				s.obj.oClass = *((CK_BYTE_PTR)pTemplate[p].pValue);
-			else if (pTemplate[p].type == CKA_CERTIFICATE_TYPE || pTemplate[p].type == CKA_KEY_TYPE)
-				s.obj.oType = *((CK_BYTE_PTR)pTemplate[p].pValue);
-			else if (pTemplate[p].type == CKA_TOKEN)
-				s.obj.oToken = *((CK_BYTE_PTR)pTemplate[p].pValue);
-			else if (pTemplate[p].type == CKA_ID)
-			{
-				memcpy (s.obj.id, pTemplate[p].pValue, pTemplate[p].ulValueLen);
-				s.obj.id_size = pTemplate[p].ulValueLen;
-			}
-			else if (pTemplate[p].type == CKA_VALUE)
-			{
-				memcpy (s.obj.oValue, pTemplate[p].pValue, pTemplate[p].ulValueLen);
-				s.obj.oValueLen = pTemplate[p].ulValueLen;
-			}
-		}
-		*phObject = 1;
-		r = CKR_OK;
-	}
 	return r;
 }
 
@@ -442,6 +418,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsFinal)(CK_SESSION_HANDLE hSession)
 }
 
 
+// Operation 3: encrypt + authenticate
+// Operation 4: decrypt + authenticate
 CK_DEFINE_FUNCTION(CK_RV, C_EncryptInit)(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism, CK_OBJECT_HANDLE hKey)
 {
 	if (!init)
@@ -468,6 +446,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_Encrypt)(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pDa
 	if (s.operation[P11_OP_ENCRYPT] != 1)
 		return CKR_OPERATION_NOT_INITIALIZED;
 
+	if(HSM_C_ChooseOpCode(0, &req.op_code) != CKR_OK)
+		return CKF_LOGIN_REQUIRED;
 	// send data size
 	send_to_connection(pipe_fd, &ulDataLen, sizeof(ulDataLen));
 	if (!waitOK(pipe_fd))
@@ -594,6 +574,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_Sign)(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pData,
 	if (!init)
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 
+	if(HSM_C_ChooseOpCode(0, &req.op_code) != CKR_OK)
+		return CKF_LOGIN_REQUIRED;
 	// send data size
 	send_to_connection(pipe_fd, &ulDataLen, sizeof(ulDataLen));
 	if(!waitOK(pipe_fd))
@@ -666,7 +648,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_Verify)(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pDat
 
 	// set operation flag
 	if (s.operation[P11_OP_VERIFY] == 0)
-		return CKR_OPERATION_NOT_INITIALIZED;
+		return CKF_LOGIN_REQUIRED;
+
+	if(HSM_C_ChooseOpCode(0, &req.op_code) != CKR_OK)
+		return CKF_LOGIN_REQUIRED;
 
 	// send data size
 	send_to_connection(pipe_fd, &ulDataLen, sizeof(ulDataLen));
@@ -812,6 +797,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_DeriveKey)(CK_SESSION_HANDLE hSession, CK_MECHANISM_
 	if (pTemplate != NULL)
 		return CKR_ATTRIBUTE_VALUE_INVALID;
 
+	if(HSM_C_ChooseOpCode(0, &req.op_code) != CKR_OK)
+		return CKF_LOGIN_REQUIRED;
+
 	// send entity ID
 	send_to_connection(pipe_fd, p->pPublicData , p->ulPublicDataLen);
 	if(!waitOK(pipe_fd))
@@ -864,6 +852,9 @@ CK_DEFINE_FUNCTION(CK_RV, HSM_C_GetKeyList)(CK_SLOT_ID_PTR pSlot, CK_BYTE_PTR li
 
 	// Get session
 
+	if(HSM_C_ChooseOpCode(0, &req.op_code) != CKR_OK)
+		return CKF_LOGIN_REQUIRED;
+
 	receive_from_connection(pipe_fd, list, DATA_SIZE);
 	sendOK(pipe_fd, (uint8_t *)"OK");
 
@@ -872,28 +863,77 @@ CK_DEFINE_FUNCTION(CK_RV, HSM_C_GetKeyList)(CK_SLOT_ID_PTR pSlot, CK_BYTE_PTR li
 
 CK_DEFINE_FUNCTION(CK_RV, HSM_C_ChooseOpCode)(CK_SLOT_ID_PTR pSlot, CK_BYTE_PTR opcode)
 {
-	CK_BYTE greetings[DATA_SIZE];
+	CK_BYTE r;
 	if (!init)
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 
 	// Get session
 
 	// Get greetings message
-	receive_from_connection(pipe_fd, greetings, sizeof(greetings));
-	printf ("%s", greetings);
-
-	// Input op code from stdin
-	scanf("%hhd", opcode);
-	flush_stdin();
+	// receive_from_connection(pipe_fd, greetings, sizeof(greetings));
+	// printf ("%s", greetings);
 
 	// Send op code and wait for confirmation
 	// If error occurs, user must choose code:1 and authenticate with PIN
 	send_to_connection(pipe_fd, opcode, sizeof(CK_BYTE));
 	if (!waitOK(pipe_fd))
 	{
-		return CKF_LOGIN_REQUIRED;
+		r = CKF_LOGIN_REQUIRED;
+	}
+	else
+		r = CKR_OK;
+
+	// r = HSM_C_ChooseOpCode(0, &req.op_code);
+	if (r == CKF_LOGIN_REQUIRED && req.op_code != 1)
+	{
+		printf ("NOT AUTHENTICATED\n");
+		return r;
+	}
+	else if (r == CKR_CRYPTOKI_NOT_INITIALIZED)
+	{
+		printf("Cryptoki not initialized\n");
+		return r;
 	}
 
 	return CKR_OK;
 }
 
+CK_DEFINE_FUNCTION(CK_RV, HSM_C_SaveObject)(CK_OBJECT_HANDLE phObject)
+{
+	CK_BYTE r, status;
+	if (!init)
+		return CKR_CRYPTOKI_NOT_INITIALIZED;
+
+	if (phObject != 1)
+		return CKR_KEY_HANDLE_INVALID;
+
+	if (s.obj.oClass != CKO_CERTIFICATE || s.obj.oType != CKC_X_509 || s.obj.oToken != CK_FALSE)
+		return CKR_MECHANISM_INVALID;
+
+	if(HSM_C_ChooseOpCode(0, &req.op_code) != CKR_OK)
+		return CKF_LOGIN_REQUIRED;
+
+	// send entity ID
+	send_to_connection(pipe_fd, s.obj.id, s.obj.id_size);
+	if(!waitOK(pipe_fd))
+		return CKR_FUNCTION_FAILED;
+
+	// Send certificate size
+	send_to_connection(pipe_fd, &s.obj.oValueLen, sizeof(s.obj.oValueLen));
+	if(!waitOK(pipe_fd))
+		return CKR_FUNCTION_FAILED;
+	// send certificate
+	send_to_connection(pipe_fd, s.obj.oValue, s.obj.oValueLen);
+	if(!waitOK(pipe_fd))
+		return CKR_FUNCTION_FAILED;
+
+	// Receives status
+	receive_from_connection(pipe_fd, &status, sizeof(uint8_t));
+	sendOK(pipe_fd, (uint8_t *)"OK");
+
+	if (status != 0)
+		r = CKR_OK;
+	else
+		r = CKR_FUNCTION_FAILED;
+	return r;
+}

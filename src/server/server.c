@@ -15,7 +15,7 @@ int main (void)
 
 	while(1)
 	{
-		display_greeting(); // Send greeting string
+		// display_greeting(); // Send greeting string
 
 		// Receive operation code
 		receive_from_connection(pipe_fd, &req.op_code, sizeof(uint8_t));

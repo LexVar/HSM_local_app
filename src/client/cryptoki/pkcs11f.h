@@ -936,3 +936,10 @@ CK_PKCS11_FUNCTION_INFO(HSM_C_ChooseOpCode)
 );
 #endif
 
+/* HSM_C_SaveObject saves object on the HSM. */
+CK_PKCS11_FUNCTION_INFO(HSM_C_SaveObject)
+#ifdef CK_NEED_ARG_LIST
+(
+  CK_OBJECT_HANDLE phObject
+);
+#endif

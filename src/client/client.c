@@ -24,17 +24,11 @@ int main(void)
 		printf ("Press ENTER to continue...\n");
 		flush_stdin();
 
-		r = HSM_C_ChooseOpCode(0, &req.op_code);
-		if (r == CKF_LOGIN_REQUIRED && req.op_code != 1)
-		{
-			printf ("NOT AUTHENTICATED\n");
-			continue;
-		}
-		else if (r == CKR_CRYPTOKI_NOT_INITIALIZED)
-		{
-			printf("Cryptoki not initialized\n");
-			continue;
-		}
+		display_greeting();
+
+		// Input op code from stdin
+		scanf("%hhd", &req.op_code);
+		flush_stdin();
 
 		// ------------------------------
 		switch (req.op_code)
@@ -242,7 +236,7 @@ int main(void)
 					{CKA_VALUE, req.import_pub.public_key, req.import_pub.cert_size} };
 
 				// The handle is null since the certificate will not be saved locally, only HSM
-				r = C_CreateObject (0, template, 5, NULL);
+				r = C_CreateObject (0, template, 5, &obj);
 
 				if (r != CKR_OK)
 					printf ("[CLIENT] Error saving certificate\n");
@@ -284,8 +278,7 @@ int main(void)
 					printf("Function error \n");
 				break;
 			case 10: // Logout request
-				printf ("[CLIENT] Sending logout request\n");
-				waitOK(pipe_fd);
+				C_Logout(0);
 				break;
 			case 0:
 				printf("[CLIENT] Stopping client..\n");
@@ -297,12 +290,6 @@ int main(void)
 		}
 	}
 	return 0;
-}
-
-// Operation 3: encrypt + authenticate
-// Operation 4: decrypt + authenticate
-void encrypt_authenticate(uint8_t * file)
-{
 }
 
 uint32_t get_attribute_from_file (uint8_t * attribute)
@@ -318,6 +305,25 @@ uint32_t get_attribute_from_file (uint8_t * attribute)
 
 	// get data and size from file
 	return read_from_file (filename, attribute);
+}
+
+void display_greeting ()
+{
+	uint8_t greeting [] ="\n--CLIENT OPERATIONS--\n\
+1. Authentication\n\
+2. Change PIN\n\
+3. Encrypt message\n\
+4. Decrypt message\n\
+5. Sign message\n\
+6. Verify signature\n\
+7. Import public key\n\
+8. New comms key\n\
+9. List comm keys\n\
+10. Logout\n\
+0. Quit\n\
+--------------------\n\n\
+Operation: ";
+	printf ("%s", greeting);
 }
 
 void cleanup()

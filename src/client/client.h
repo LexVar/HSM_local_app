@@ -11,8 +11,7 @@
 #include "pkcs11.c"
 
 uint32_t get_attribute_from_file (uint8_t * attribute);
+void display_greeting ();
 void cleanup();
-void encrypt_authenticate(uint8_t * file);
-void import_pubkey_operation();
 
 #endif 
