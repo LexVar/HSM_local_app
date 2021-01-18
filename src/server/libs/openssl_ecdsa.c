@@ -1,4 +1,4 @@
-#include "sign.h"
+#include "openssl_ecdsa.h"
 
 uint8_t *simple_digest(uint8_t *buf, uint32_t len, uint32_t *olen)
 {
