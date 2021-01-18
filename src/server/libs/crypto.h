@@ -9,6 +9,7 @@
 #include <inttypes.h>
 
 #include "../../protocol.h"
+#include "../../comms.h"
 
 typedef struct
 {

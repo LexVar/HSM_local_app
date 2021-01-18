@@ -240,7 +240,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_InitPIN)(CK_SESSION_HANDLE hSession, CK_UTF8CHAR_PTR
 // Operation 2: Set new authentication PIN
 CK_DEFINE_FUNCTION(CK_RV, C_SetPIN)(CK_SESSION_HANDLE hSession, CK_UTF8CHAR_PTR pOldPin, CK_ULONG ulOldLen, CK_UTF8CHAR_PTR pNewPin, CK_ULONG ulNewLen)
 {
-	CK_BYTE status;
 	if (!init)
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 
@@ -761,7 +760,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Verify)(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pDat
 	sendOK(pipe_fd, (uint8_t *)"OK");
 
 	s.operation[P11_OP_VERIFY] = 0;
-	if (status > 0)
+	if (status == 0)
 		return CKR_OK;
 	else
 		return CKR_FUNCTION_FAILED;

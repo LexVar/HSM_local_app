@@ -280,7 +280,11 @@ void encrypt_authenticate()
 // Operation 5: sign data
 void sign_operation ()
 {
-	resp.status = sign_data(req.sign.data, req.sign.data_size, (uint8_t *)PRIVATE_KEY, resp.sign.signature, &resp.sign.signlen);
+	uint8_t private[ECC_KEY_SIZE];
+	read_from_file ((uint8_t *)PRIVATE_KEY, private);
+	resp.status = PKC_signData(private, req.sign.data, req.sign.data_size, resp.sign.signature, (size_t *)&resp.sign.signlen);
+	// resp.status = sign_data(req.sign.data, req.sign.data_size, (uint8_t *)PRIVATE_KEY, resp.sign.signature, &resp.sign.signlen);
+	resp.status = !resp.status;
 	if (resp.status == 0)
 		printf ("[SERVER] Data succesfully signed\n");
 	else
@@ -291,12 +295,16 @@ void sign_operation ()
 void verify_operation()
 {
 	uint8_t keyfile[ID_SIZE];
+	uint8_t cert[PUB_KEY_SIZE];
 
 	// Get key path from secure storage
 	get_key_path(req.verify.entity_id, keyfile, (uint8_t *)".cert");
 
-	resp.status = verify_data(req.verify.data, req.verify.data_size, keyfile, req.verify.signature, req.verify.signlen);
-	if (resp.status > 0)
+	read_from_file (keyfile, cert);
+	resp.status = PKC_verifySignature(cert, req.verify.data, req.verify.data_size, req.verify.signature, (size_t)req.verify.signlen);
+	/* resp.status = PKC_verifySignature(keyfile, req.verify.data, req.verify.data_size, req.verify.signature, (size_t)req.verify.signlen); */
+	// resp.status = verify_data(req.verify.data, req.verify.data_size, keyfile, req.verify.signature, req.verify.signlen);
+	if (resp.status == 0)
 		printf ("[SERVER] Signature verified successfully\n");
 	else
 		printf ("[SERVER] Error verifying signature\n");

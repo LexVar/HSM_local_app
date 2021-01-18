@@ -145,12 +145,16 @@ uint32_t encrypt(uint8_t * in, uint32_t inlen, uint8_t * out, uint8_t * key_file
 	uint8_t ciphertext[DATA_SIZE];
 	uint8_t iv_cipher[DATA_SIZE];
 	uint8_t iv[AES_BLOCK_SIZE];
-	uint8_t key[2*KEY_SIZE];
+	uint8_t key[2*KEY_SIZE], padded_key[KEY_SIZE*3];
 	uint32_t size;
 
 	// read keys from file
 	if(read_key(key, key_file, 2*KEY_SIZE) == 0)
 		return 0;
+
+	memcpy (padded_key, key, 2*KEY_SIZE);
+	memset (padded_key+2*KEY_SIZE, 0, KEY_SIZE);
+
 	// set mac key pointer
 	mac_key = &key[KEY_SIZE];
 
