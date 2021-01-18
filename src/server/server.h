@@ -10,7 +10,7 @@
 #include "../comms.h"
 // #include "libs/sign.h"
 #include "libs/crypto.h"
-#include "libs/ecdh.c"
+// #include "libs/ecdh.c"
 #include "libs/pkc.h"
 #include <inttypes.h>
 
