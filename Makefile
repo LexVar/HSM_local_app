@@ -2,22 +2,20 @@ SOURCE_DIR = ./src
 CLIENT_DIR = ./src/client
 SERVER_DIR = ./src/server
 LIBS_DIR = $(SERVER_DIR)/libs
-OPENSSL_DIR = $(LIBS_DIR)/openssl
 MBEDTLS_DIR = $(LIBS_DIR)/mbedtls
 BIN_DIR = ./bin
 
 # Include all precompiled libtomcrypt object files
-OBJS := $(shell find $(OPENSSL_DIR) -name *.o)
 SRCS := $(shell find $(MBEDTLS_DIR) -name *.c)
 
 CC = gcc
-CFLAGS = -Wall -I$(OPENSSL_DIR)/include -I$(MBEDTLS_DIR)/include
+CFLAGS = -Wall -I$(MBEDTLS_DIR)/include
 # CFLAGS = -Wall -Wextra -Werror -pedantic
 
-LIBS = -L$(OPENSSL_DIR) -lcrypto -lssl
+LIBS = -lcrypto -lssl
 
-server: $(SERVER_DIR)/server.c $(LIBS_DIR)/crypto.c $(LIBS_DIR)/sign.c $(SOURCE_DIR)/comms.c $(LIBS_DIR)/pkc.c $(SRCS)
-	$(CC) $(CFLAGS) $(OBJS) $^ -o $(BIN_DIR)/server $(LIBS) 
+server: $(SERVER_DIR)/server.c $(LIBS_DIR)/crypto.c $(SOURCE_DIR)/comms.c $(LIBS_DIR)/pkc.c $(SRCS)
+	$(CC) $(CFLAGS) $^ -o $(BIN_DIR)/server $(LIBS) 
 
 client: $(CLIENT_DIR)/client.c $(SOURCE_DIR)/comms.c 
 	$(CC) $(CFLAGS) $^ -o $(BIN_DIR)/client
