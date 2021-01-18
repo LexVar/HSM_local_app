@@ -15,5 +15,8 @@ The program is composed of two components.
 The harware connection between both components is emulated through a named pipe.
 
 ### Requirements
-* C language
-* OpenSSL library
+* gcc compiler
+* OpenSSL library with development packages installed
+
+### References
+* Diogo Parrinha and Ricardo Chaves previous [work](http://sips.inesc-id.pt/~rjfc/cores/HSM-SF2/)
