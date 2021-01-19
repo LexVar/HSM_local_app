@@ -316,7 +316,7 @@ void verify_operation()
 void import_pubkey_operation()
 {
 	uint8_t keyfile[ID_SIZE];
-	get_key_path(req.import_pub.entity_id, keyfile, (uint8_t *)".cert");
+	get_key_path(req.import_pub.entity_id, keyfile, (uint8_t *)".pub");
 
 	if (write_to_file(keyfile, req.import_pub.public_key, req.import_pub.cert_size) != NULL)
 		resp.status = 1;

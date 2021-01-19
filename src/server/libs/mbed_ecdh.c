@@ -85,6 +85,12 @@ uint8_t ecdh(uint8_t *privkey, uint8_t * public, uint8_t * secret, size_t * len)
 	ret = mbedtls_mpi_write_binary (&peer_ecp->Q.X, cli_pub_x, sizeof(cli_pub_x));
 	ret = mbedtls_mpi_write_binary (&peer_ecp->Q.Y, cli_pub_y, sizeof(cli_pub_y));
 
+	// char buffer[96];
+	// mbedtls_mpi_write_binary (&ctx_srv.d, (uint8_t *)buffer, 96);
+	// FILE *f = fopen("d.mpi", "w");
+	// fwrite(buffer, 96, 1, f);
+	// fclose(f);
+
 	// store peer's public key X point from buffer into ecdh context
 	ret = mbedtls_mpi_read_binary(&ctx_srv.Qp.X, cli_pub_x, 48u);
 	if( ret != 0 )

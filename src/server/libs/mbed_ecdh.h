@@ -1,19 +1,16 @@
 #ifndef MBED_ECDH_H 
 #define MBED_ECDH_H 
 
-#include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
 #include "mbedtls/ecdh.h"
 #include "mbedtls/config.h"
-#include "mbedtls/platform.h"
 #include "mbedtls/pkcs5.h"
 #include "mbedtls/entropy.h"
 #include "mbedtls/ctr_drbg.h"
 #include "mbedtls/pk.h"
-#include "mbedtls/sha256.h"
 
 #include "../../protocol.h"
+#include "../../comms.h"
 
 // int mbedtls_hardware_poll(void *data, unsigned char *output, size_t len, size_t *olen);
 

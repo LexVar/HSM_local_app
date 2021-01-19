@@ -1,30 +1,6 @@
 #include "crypto.h"
 #include "aes/aes_ctr.c"
 
-uint8_t simpleSHA256(void * input, uint64_t length, uint8_t * md)
-{
-	SHA256_CTX context;
-	if(!SHA256_Init(&context))
-	{
-		fprintf(stderr, "[CRYPTO] SHA256_Init failed\n");
-		return -1;
-	}
-
-	if(!SHA256_Update(&context, input, length))
-	{
-		fprintf(stderr, "[CRYPTO] SHA256_Update failed\n");
-		return -1;
-	}
-
-	if(!SHA256_Final(md, &context))
-	{
-		fprintf(stderr, "[CRYPTO] SHA256_Final failed\n");
-		return -1;
-	}
-
-	return 0;
-}
-
 void init_crypto_state ()
 {
 	OpenSSL_add_all_digests();
@@ -50,7 +26,6 @@ uint32_t compare_strings(uint8_t * m1, uint8_t * m2, uint32_t length)
 	return different;
 }
 
-// Read key from aes.key file
 uint8_t read_key(uint8_t * key, uint8_t * key_file, uint32_t key_size)
 {
 	FILE *fin;
