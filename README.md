@@ -15,8 +15,9 @@ The program is composed of two components.
 The harware connection between both components is emulated through a named pipe.
 
 ### Requirements
-* gcc compiler
-* OpenSSL library with development packages installed
+* gcc version 10.2.1
+* OpenSSL 1.1.1i
+* mbedtls 2.25.0
 
 ### References
 * Diogo Parrinha and Ricardo Chaves previous [work](http://sips.inesc-id.pt/~rjfc/cores/HSM-SF2/)

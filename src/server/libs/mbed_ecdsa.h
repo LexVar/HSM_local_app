@@ -2,7 +2,9 @@
 #define MBED_ECDSA_H
 
 #include <string.h>
+#include "mbedtls/ecdh.h"
 #include "mbedtls/config.h"
+#include "mbedtls/platform.h"
 #include "mbedtls/entropy.h"
 #include "mbedtls/ctr_drbg.h"
 #include "mbedtls/pk.h"
