@@ -90,7 +90,7 @@ int main (void)
 
 				// Get data
 				receive_from_connection(pipe_fd, req.sign.data, req.sign.data_size);
-				printf ("data: %s\n", req.sign.data);
+				// printf ("data: %s\n", req.sign.data);
 				// sendOK(pipe_fd, (uint8_t *)"OK");
 
 				if (req.sign.data[0] != 0)
@@ -327,13 +327,13 @@ void import_pubkey_operation()
 // Operation 8: Generate new key from private key, and an entities public key
 void new_comms_key ()
 {
-	uint8_t key[KEY_SIZE*2];
 	uint8_t secret[128u];
 	uint8_t keyfile[ID_SIZE];
 	uint8_t private[ECC_KEY_SIZE];
 	uint8_t pub[PUB_KEY_SIZE];
 	// TODO exchange salt, or agree salt beforehand
-	uint8_t salt[16u] = "3234567890123456";
+	// uint8_t salt[16u] = "3234567890123456";
+	// uint8_t key[KEY_SIZE*2];
 	size_t secret_len;
 
 	// Read private key from file
@@ -349,12 +349,12 @@ void new_comms_key ()
 	// If key was successfully derived, store it
 	if (resp.status == 0)
 	{
-		resp.status = kdf (salt, 16u, secret, secret_len, key);
-		if (resp.status == 0)
-		{
-			get_key_path(req.gen_key.entity_id, keyfile, (uint8_t *)".key");
-			write_to_file (keyfile, key, KEY_SIZE*2);
-		}
+		// resp.status = kdf (salt, 16u, secret, secret_len, key);
+		// if (resp.status == 0)
+		// {
+		get_key_path(req.gen_key.entity_id, keyfile, (uint8_t *)".key");
+		write_to_file (keyfile, secret, KEY_SIZE*2);
+		// }
 	}
 }
 

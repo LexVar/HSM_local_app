@@ -181,7 +181,7 @@ uint8_t kdf(uint8_t * salt, size_t saltlen, uint8_t * shared_secret, size_t len,
 	// 1 - algorithm iteration count
 	// size of generated key
 	// key buffer
-	ret = mbedtls_pkcs5_pbkdf2_hmac(&md_ctx, shared_secret, len, salt, saltlen, 1, KEY_SIZE*2, key);
+	ret = mbedtls_pkcs5_pbkdf2_hmac(&md_ctx, shared_secret, len, salt, saltlen, 10000, KEY_SIZE*2, key);
 	if(ret != 0)
 	{
 		mbedtls_md_free(&md_ctx);
