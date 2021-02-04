@@ -21,3 +21,4 @@ The harware connection between both components is emulated through a named pipe.
 
 ### References
 * Diogo Parrinha and Ricardo Chaves previous [work](http://sips.inesc-id.pt/~rjfc/cores/HSM-SF2/)
+* PKCS#11 [Library](https://github.com/Pkcs11Interop/empty-pkcs11)
