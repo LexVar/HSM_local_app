@@ -250,3 +250,182 @@ uint8_t * compute_hmac(uint8_t * key, uint8_t * message, uint32_t size)
 
 	return md;
 }
+
+uint32_t init_keys(uint8_t * new_key, uint16_t keylen)
+{
+	uint8_t * mac;
+	uint8_t * mac_key;
+	uint8_t ciphertext[DATA_SIZE], plaintext[DATA_SIZE], out[DATA_SIZE];
+	uint8_t iv[AES_BLOCK_SIZE], key[3*KEY_SIZE];
+	uint16_t cipherlen;
+
+	// fetch pre defined key
+	if(read_key(key, (uint8_t*)"keys/hsm.key", 2*KEY_SIZE) == 0)
+		return 0;
+
+	memset(&key[2*KEY_SIZE], 0, KEY_SIZE);
+
+	// set mac key pointer
+	mac_key = &key[KEY_SIZE];
+
+	plaintext[0] = 1;
+	plaintext[1] = 1;
+	plaintext[2] = keylen/8;
+	memcpy(&plaintext[3], new_key, keylen);
+
+	// Generate random IV
+	// USE NRGB HERE
+	if ( !RAND_bytes(iv, sizeof(iv)) )
+		exit(-1);
+
+	/* perform ctr encryption, return cipher/plaintext */
+	cipherlen = ctr_encryption(plaintext, keylen+3, iv, ciphertext, key);
+
+	cipherlen = cipherlen+AES_BLOCK_SIZE;
+	memcpy(out,(uint16_t *)&cipherlen, sizeof(uint16_t));
+	memcpy(&out[2], iv, AES_BLOCK_SIZE);
+	memcpy(&out[2+AES_BLOCK_SIZE], ciphertext, cipherlen-AES_BLOCK_SIZE);
+
+	/* compute mac from IV+CIPHER/PLAINTEXT */
+	mac = compute_hmac(mac_key, out, 2+cipherlen);
+
+	// concatenate the 3 components for final result
+	if (mac != NULL && cipherlen > 0)
+	{
+		printf ("Message succesfully encrypted..\nMAC Generated..\n");
+		write_to_file((uint8_t *)"keys/keys.enc", out, 2+cipherlen);
+
+		write_to_file((uint8_t *)"keys/keys.mac", mac, MAC_SIZE);
+		// free (mac);
+	}
+	else 
+	{
+		printf ("Error computing the MAC..\n");
+		return 1;
+	}
+
+	return 0;
+}
+
+uint32_t read_key_set(uint8_t * out, uint16_t *keylen)
+{
+	uint8_t * computed_mac, * iv, *ciphertext;
+	uint8_t * mac_key;
+	uint8_t set[DATA_SIZE], mac[MAC_SIZE];
+	uint8_t key[3*KEY_SIZE];
+	uint16_t len;
+
+	// fetch pre defined key
+	if(read_key(key, (uint8_t*)"keys/hsm.key", 2*KEY_SIZE) == 0)
+		return 0;
+
+	memset(&key[2*KEY_SIZE], 0, KEY_SIZE);
+	// set mac key pointer
+	mac_key = &key[KEY_SIZE];
+
+	// fetch key set
+	if(read_from_file((uint8_t*)"keys/keys.enc", set) == 0)
+		return 0;
+
+	memcpy(&len, (uint16_t *)set, sizeof(uint16_t));
+	printf ("Length (2 bytes): %d\n",len);
+
+	/* compute mac from IV+CIPHER/PLAINTEXT */
+	computed_mac = compute_hmac(mac_key, set, 2+len);
+
+	if(read_from_file((uint8_t*)"keys/keys.mac", mac) == 0)
+		return 0;
+
+	// concatenate the 3 components for final result
+	if (computed_mac != NULL && strncmp((char *)mac, (char *)computed_mac, MAC_SIZE) == 0)
+	{
+		printf ("MAC validated..\nDecrypting keys..\n");
+
+		iv = &set[2];
+		printf ("IV: %s\n", iv);
+		ciphertext = &set[2+AES_BLOCK_SIZE];
+
+		/* perform ctr encryption, return cipher/plaintext */
+		*keylen = ctr_encryption(ciphertext, len-AES_BLOCK_SIZE, iv, out, key);
+
+		printf ("Nkeys: %d\n", out[0]);
+		uint8_t * ptr = out+1;
+		for (int i = 0; i < out[0]; i++)
+		{
+			printf ("ID: %d\n", ptr[0]);
+			printf ("len: %d\n", ptr[1]*8);
+			printf ("OUT: %s\n", ptr+2);
+			ptr += 2+ptr[1]*8;
+		}
+
+	}
+	else 
+	{
+		printf ("Error computing the MAC..\n");
+		return 1;
+	}
+
+	return 0;
+}
+
+uint32_t add_key(uint8_t *new_key, uint16_t keylen)
+{
+	uint8_t * mac, *plaintext;
+	uint8_t * mac_key;
+	uint8_t ciphertext[DATA_SIZE], out[DATA_SIZE];
+	uint8_t iv[AES_BLOCK_SIZE], set[DATA_SIZE], key[3*KEY_SIZE];
+	uint16_t cipherlen, setlen;
+
+	if (read_key_set(set, &setlen) != 0)
+		return 0;
+
+	plaintext = set+setlen;
+
+	// fetch pre defined key
+	if(read_key(key, (uint8_t*)"keys/hsm.key", 2*KEY_SIZE) == 0)
+		return 0;
+
+	memset(&key[2*KEY_SIZE], 0, KEY_SIZE);
+	// set mac key pointer
+	mac_key = &key[KEY_SIZE];
+
+	set[0]++;
+	printf ("ID: %d\n", set[0]);
+	plaintext[0] = set[0];
+	plaintext[1] = keylen/8;
+	memcpy(plaintext+2, new_key, keylen);
+	printf ("len: %d\n", plaintext[1]);
+
+	// Generate random IV
+	// USE NRGB HERE
+	if ( !RAND_bytes(iv, sizeof(iv)) )
+		exit(-1);
+
+	/* perform ctr encryption, return cipher/plaintext */
+	cipherlen = ctr_encryption(set, setlen+keylen+2, iv, ciphertext, key);
+	cipherlen = cipherlen+AES_BLOCK_SIZE;
+
+	memcpy(out,(uint16_t *)&cipherlen, sizeof(uint16_t));
+	memcpy(&out[2], iv, AES_BLOCK_SIZE);
+	memcpy(&out[2+AES_BLOCK_SIZE], ciphertext, cipherlen-AES_BLOCK_SIZE);
+
+	/* compute mac from IV+CIPHER/PLAINTEXT */
+	mac = compute_hmac(mac_key, out, 2+cipherlen);
+
+	// concatenate the 3 components for final result
+	if (mac != NULL && cipherlen > 0)
+	{
+		printf ("Message succesfully encrypted..\nMAC Generated..\n");
+		write_to_file((uint8_t *)"keys/keys.enc", out, 2+cipherlen);
+
+		write_to_file((uint8_t *)"keys/keys.mac", mac, MAC_SIZE);
+		// free (mac);
+	}
+	else 
+	{
+		printf ("Error computing the MAC..\n");
+		return 1;
+	}
+
+	return 0;
+}

@@ -5,6 +5,8 @@ struct request req;		// request structure
 struct response resp;		// response structure
 uint8_t authenticated = 0;	// Flag, 1-authenticated, 0-not authenticated
 uint32_t pipe_fd;	// Pipe descriptor
+uint8_t key_set[DATA_SIZE];	// Pipe descriptor
+uint16_t keylen;	// Pipe descriptor
 
 int main (void)
 {
@@ -12,6 +14,13 @@ int main (void)
 
 	// load cryptography libraries
 	init_crypto_state();
+
+	init_keys((uint8_t *)"41203491263490123428136482364iub", 32);
+
+	// read_key_set(key_set, &keylen);
+	
+	add_key((uint8_t *)"i11111111111111122222222222222233333333f", 40);
+	read_key_set(key_set, &keylen);
 
 	while(1)
 	{
