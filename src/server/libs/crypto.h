@@ -32,8 +32,12 @@ uint32_t ctr_encryption(uint8_t * plaintext, uint32_t size, uint8_t * iv, uint8_
 uint32_t encrypt(uint8_t * in, uint32_t inlen, uint8_t * out, uint8_t * key_file);
 uint32_t decrypt(uint8_t * in, uint32_t inlen, uint8_t * out, uint8_t * key_file);
 uint8_t * compute_hmac(uint8_t * key, uint8_t * message, uint32_t size);
-uint32_t init_keys(uint8_t * new_key, uint16_t keylen);
-uint32_t read_key_set(uint8_t * out, uint16_t *keylen);
-uint32_t add_key(uint8_t * new_key, uint16_t keylen);
+
+// Key set management functions in memory
+uint8_t encrypt_keyset (uint8_t *set, uint16_t setlen);
+uint8_t init_keys(uint8_t * new_key, uint16_t keylen);
+uint8_t read_key_set(uint8_t * out, uint16_t *keylen);
+uint8_t add_key(uint8_t * new_key, uint16_t keylen);
+void fetch_key_from_set(uint8_t *set, uint16_t setlen, uint8_t id, uint8_t *key, uint16_t *keylen);
 
 #endif 

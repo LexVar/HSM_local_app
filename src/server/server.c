@@ -5,8 +5,8 @@ struct request req;		// request structure
 struct response resp;		// response structure
 uint8_t authenticated = 0;	// Flag, 1-authenticated, 0-not authenticated
 uint32_t pipe_fd;	// Pipe descriptor
-uint8_t key_set[DATA_SIZE];	// Pipe descriptor
-uint16_t keylen;	// Pipe descriptor
+uint8_t key_set[DATA_SIZE], key[DATA_SIZE];
+uint16_t keylen, keyl;
 
 int main (void)
 {
@@ -20,7 +20,15 @@ int main (void)
 	// read_key_set(key_set, &keylen);
 	
 	add_key((uint8_t *)"i11111111111111122222222222222233333333f", 40);
+	add_key((uint8_t *)"i11111111111111122242rrrrrrrr2233333333f", 40);
 	read_key_set(key_set, &keylen);
+
+	fetch_key_from_set(key_set, keylen, 2, key, &keyl);
+	if (keyl > 0)
+	{
+		printf ("FOUND KEY: ");
+		print_chars(key, keyl);
+	}
 
 	while(1)
 	{
