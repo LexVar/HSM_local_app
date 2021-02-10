@@ -5,6 +5,7 @@
 #include <openssl/rand.h>
 #include <openssl/hmac.h>
 #include <openssl/err.h>
+#include <openssl/sha.h>
 #include <inttypes.h>
 
 #include "../../protocol.h"
@@ -15,6 +16,8 @@ void init_crypto_state ();
 void concatenate(uint8_t * dest, uint8_t * src, uint32_t start, uint32_t length);
 uint32_t compare_strings(uint8_t * m1, uint8_t * m2, uint32_t length);
 uint8_t read_key(uint8_t * key, uint8_t * key_file, uint32_t key_size);
+
+uint8_t simpleSHA256(void * input, uint64_t length, uint8_t * md);
 
 // AES CTR openssl structure, functions
 typedef struct

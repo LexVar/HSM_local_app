@@ -297,13 +297,16 @@ void encrypt_authenticate()
 // Operation 5: sign data
 void sign_operation ()
 {
-	uint8_t private[ECC_KEY_SIZE];
+	// -----------------------------
+	// uint8_t private[ECC_KEY_SIZE];
 
 	// Read private key from file
-	read_from_file ((uint8_t *)PRIVATE_KEY, private);
+	// read_from_file ((uint8_t *)PRIVATE_KEY, private);
 
 	// Sign data
-	resp.status = sign_data(private, req.sign.data, req.sign.data_size, resp.sign.signature, (size_t *)&resp.sign.signlen);
+	// resp.status = sign_data(private, req.sign.data, req.sign.data_size, resp.sign.signature, (size_t *)&resp.sign.signlen);
+	// -----------------------------
+	resp.status = sign_data(req.sign.data, req.sign.data_size, (uint8_t *)PRIVATE_KEY, resp.sign.signature, &resp.sign.signlen);
 	if (resp.status == 0)
 		printf ("[SERVER] Data succesfully signed\n");
 	else
@@ -314,15 +317,20 @@ void sign_operation ()
 void verify_operation()
 {
 	uint8_t keyfile[ID_SIZE];
-	uint8_t pub[PUB_KEY_SIZE];
 
+	// -----------------------------
+	// uint8_t pub[PUB_KEY_SIZE];
 	// Get certificate path from secure storage
-	get_key_path(req.verify.entity_id, keyfile, (uint8_t *)".pub");
-
+	// get_key_path(req.verify.entity_id, keyfile, (uint8_t *)".pub");
 	// Read certificate
-	read_from_file (keyfile, pub);
+	// read_from_file (keyfile, pub);
 	// Verify signature
-	resp.status = verify_signature(pub, req.verify.data, req.verify.data_size, req.verify.signature, (size_t)req.verify.signlen);
+	// resp.status = verify_signature(pub, req.verify.data, req.verify.data_size, req.verify.signature, (size_t)req.verify.signlen);
+
+	// -----------------------------
+	get_key_path(req.verify.entity_id, keyfile, (uint8_t *)".cert");
+
+	resp.status = !verify_data(req.verify.data, req.verify.data_size, keyfile, req.verify.signature, req.verify.signlen);
 	if (resp.status == 0)
 		printf ("[SERVER] Signature verified successfully\n");
 	else
@@ -342,6 +350,7 @@ void import_pubkey_operation()
 }
 
 // Operation 8: Generate new key from private key, and an entities public key
+/*
 void new_comms_key ()
 {
 	uint8_t secret[128u];
@@ -372,6 +381,37 @@ void new_comms_key ()
 		get_key_path(req.gen_key.entity_id, keyfile, (uint8_t *)".key");
 		write_to_file (keyfile, secret, KEY_SIZE*2);
 		// }
+	}
+}
+*/
+
+// Operation 8: Generate new key from private key, and an entities public key
+void new_comms_key ()
+{
+	uint8_t key[HASH_SIZE];
+	size_t len;
+	uint8_t * secret;
+	uint8_t keyfile[ID_SIZE];
+
+	get_key_path(req.gen_key.entity_id, keyfile, (uint8_t *)".cert");
+
+	secret = ecdh((uint8_t *)PRIVATE_KEY, keyfile, &len);
+
+	if (secret == NULL)
+	{
+		resp.status = 1;
+		return;
+	}
+
+	// Key derivation function from secret
+	resp.status = simpleSHA256(secret, len, key);
+
+	free(secret);
+	// If key was successfully derived, store it
+	if (resp.status == 0)
+	{
+		get_key_path(req.gen_key.entity_id, keyfile, (uint8_t *)".key");
+		write_to_file (keyfile, key, HASH_SIZE);
 	}
 }
 

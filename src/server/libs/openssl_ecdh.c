@@ -1,5 +1,6 @@
 #include <openssl/evp.h>
 #include <openssl/ec.h>
+#include <openssl/pem.h>
 
 // Import public key from local certificate file
 EVP_PKEY * import_public_key (uint8_t *certpath)

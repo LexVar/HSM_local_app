@@ -13,12 +13,12 @@
 
 #include "libs/crypto.h"
 #include "libs/keys.h"
-#include "libs/mbed_ecdsa.h"
-#include "libs/mbed_ecdh.h"
+// #include "libs/mbed_ecdsa.h"
+// #include "libs/mbed_ecdh.h"
 
 // DEPRECATED OPENSSL STUFF
-// #include "libs/openssl_sign.h"
-// #include "libs/openssl_ecdh.c"
+#include "libs/openssl_ecdsa.h"
+#include "libs/openssl_ecdh.c"
 
 #define PRIVATE_KEY "keys/alice.pem"
 
