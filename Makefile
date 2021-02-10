@@ -14,7 +14,7 @@ CFLAGS = -Wall -I$(MBEDTLS_DIR)/include
 
 LIBS = -lcrypto -lssl
 
-server: $(SERVER_DIR)/server.c $(LIBS_DIR)/crypto.c $(SOURCE_DIR)/comms.c $(LIBS_DIR)/mbed_ecdh.c $(LIBS_DIR)/mbed_ecdsa.c $(SRCS)
+server: $(SERVER_DIR)/server.c $(LIBS_DIR)/crypto.c $(LIBS_DIR)/keys.c $(SOURCE_DIR)/comms.c $(LIBS_DIR)/mbed_ecdh.c $(LIBS_DIR)/mbed_ecdsa.c $(SRCS)
 	$(CC) $(CFLAGS) $^ -o $(BIN_DIR)/server $(LIBS) 
 
 client: $(CLIENT_DIR)/client.c $(SOURCE_DIR)/comms.c 

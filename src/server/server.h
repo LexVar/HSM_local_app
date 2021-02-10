@@ -12,6 +12,7 @@
 #include "../protocol.h"
 
 #include "libs/crypto.h"
+#include "libs/keys.h"
 #include "libs/mbed_ecdsa.h"
 #include "libs/mbed_ecdh.h"
 
