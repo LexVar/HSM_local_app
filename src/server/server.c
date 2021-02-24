@@ -13,22 +13,17 @@ int main (void)
 	init();
 
 	// load cryptography libraries
-	init_crypto_state();
+	// init_crypto_state();
 
-	init_keys((uint8_t *)"41203491263490123428136482364iub", 32);
+	// init_keys((uint8_t *)"41203491263490123428136482364iub", 32);
 
 	// read_key_set(key_set, &keylen);
 	
-	add_key((uint8_t *)"i11111111111111122222222222222233333333f", 40);
-	add_key((uint8_t *)"i11111111111111122242rrrrrrrr2233333333f", 40);
-	read_key_set(key_set, &keylen);
+	// add_key((uint8_t *)"i11111111111111122222222222222233333333f", 40);
+	// add_key((uint8_t *)"i11111111111111122242rrrrrrrr2233333333f", 40);
+	// read_key_set(key_set, &keylen);
 
-	fetch_key_from_set(key_set, keylen, 2, key, &keyl);
-	if (keyl > 0)
-	{
-		printf ("FOUND KEY: ");
-		print_chars(key, keyl);
-	}
+	// fetch_key_from_set(key_set, keylen, 2, key, &keyl);
 
 	while(1)
 	{
@@ -264,9 +259,12 @@ void authenticate()
 {
 	// get PIN from user
 	receive_from_connection(pipe_fd, req.auth.pin, PIN_SIZE);
+	printf ("PIN: ");
+	printf ("%c %c %c %c", req.auth.pin[0], req.auth.pin[1], req.auth.pin[2], req.auth.pin[3]);
 
 	// check PIN 
-	authenticated = resp.status = !compare_strings(req.auth.pin, AUTH_PIN, PIN_SIZE);
+	authenticated = resp.status = !strncmp ((char *)req.auth.pin, (char *)AUTH_PIN, 4);
+	// authenticated = resp.status = !compare_strings(req.auth.pin, AUTH_PIN, PIN_SIZE);
 
 	if (!authenticated)
 		printf("[SERVER] Authentication failed\n");
@@ -417,7 +415,7 @@ void new_comms_key ()
 
 void init()
 {
-	memcpy(AUTH_PIN, "1234", sizeof("1234"));
+	memcpy(AUTH_PIN, "1234", 4);
 	// Redirects SIGINT (CTRL-c) to cleanup()
 	signal(SIGINT, cleanup);
 

@@ -7,18 +7,26 @@
 uint32_t receive_from_connection (uint32_t fd, void * structure, uint32_t struct_size)
 {
 	uint32_t bytes;
+	uint8_t iv[16], key [16];
+	uint8_t * in;
 
 	if ((fd = open(PIPE_NAME, O_RDONLY)) < 0) {
 		perror("[SERVER] Cannot open pipe for reading: ");
 		exit(0);
 	}
 
-	if ((bytes = read(fd, structure, struct_size)) == -1) {
+	in = malloc(struct_size);
+	if ((bytes = read(fd, in, struct_size)) == -1) {
 		perror("Error reading from pipe: ");
 		close(fd);
+		free (in);
 		exit(0);
 	}
 
+	mbed_aes_crypt(iv, in, structure, struct_size, key);
+	printf ("decrypted data: %s\n", (char *)structure);
+
+	free (in);
 	sleep(0.3);
 	close(fd);
 	return bytes;
@@ -31,19 +39,25 @@ uint32_t receive_from_connection (uint32_t fd, void * structure, uint32_t struct
 uint32_t send_to_connection (uint32_t fd, void * structure, uint32_t struct_size)
 {
 	uint32_t bytes;
+	uint8_t iv[16], key [16];
+	uint8_t * out;
 
 	if ((fd = open(PIPE_NAME, O_WRONLY)) < 0) {
 		perror("[SERVER] Cannot open pipe for writing: ");
 		exit(0);
 	}
-
+	out = malloc(struct_size);
+	mbed_aes_crypt(iv, structure, out, struct_size, key);
+	printf ("encrypted data: %s\n", out);
 	sleep (0.3);
-	if ((bytes = write(fd, structure, struct_size)) == -1) {
+	if ((bytes = write(fd, out, struct_size)) == -1) {
 		perror("Error writing to pipe: ");
 		close(fd);
+		free(out);
 		exit(0);
 	}
 
+	free(out);
 	sleep (0.3);
 	close(fd);
 	sleep (0.3);

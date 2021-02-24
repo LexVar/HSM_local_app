@@ -3,13 +3,17 @@
 
 #include <inttypes.h>
 
-#define DATA_SIZE 65536		// 1 MB message size
+#define DATA_SIZE 100		// 1 MB message size
 #define HASH_SIZE 32		// 256 bit hash from SHA-256
 #define MAC_SIZE 32		// 256 bit MAC from HMAC-SHA-256
 #define KEY_SIZE 16		// Symmetric key size - 256 + 128 bits
 #define ECC_KEY_SIZE 384	// ECC 384 bit keys
 #define PUB_KEY_SIZE 1024	// ECC 768 bit public keys
 #define SALT_SIZE 16		// Salt size - 16 bytes
+#define PUB_KEY_SIZE 1024	// ECC 768 bit public keys
+
+#define ECC_PUBLIC_KEY_SIZE 96
+#define ECC_PRIVATE_KEY_SIZE 48
 
 #define SIGNATURE_SIZE 128	// MAX SIZE 1024 bit test key
 #define ID_SIZE 30

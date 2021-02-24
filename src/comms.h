@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <inttypes.h>
 #include "protocol.h"
+#include "server/libs/mbedtls_crypto.h"
 
 #define PIPE_NAME "/tmp/connection" // Pipe name
 

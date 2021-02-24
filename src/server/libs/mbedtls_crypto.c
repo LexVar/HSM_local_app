@@ -1,7 +1,101 @@
-#include "mbed_ecdh.h"
+#include "mbedtls_crypto.h"
 
-// ECDH
-uint8_t ecdh(uint8_t *privkey, uint8_t * public, uint8_t * secret, size_t * len)
+int mbed_sha256 (uint8_t * in, uint16_t len, uint8_t * hash)
+{
+	// Compute SHA-256 hash
+	return mbedtls_sha256_ret(in, len, hash, 0);
+
+}
+
+// Returns 0 if successfull
+// Calculates HMAC with SHA-256 of in buffer
+int mbed_hmac (uint8_t * key, uint8_t * in, uint16_t len, uint8_t * out)
+{
+
+	int ret;
+	ret = mbedtls_md_hmac(mbedtls_md_info_from_type(MBEDTLS_MD_SHA256), key, KEY_SIZE*2*8, in, len, out);
+	return ret;
+}
+
+// Returns 0 if successfull
+// Works for both encryption and decryption
+// Encryption: in -> plaintext, out -> ciphertext
+// Decryption: in -> ciphertext, out -> plaintext
+int mbed_aes_crypt(uint8_t * iv, uint8_t * in, uint8_t * out, uint16_t len, uint8_t * key)
+{
+	size_t nc_off = 0;
+	int ret;
+	uint8_t stream_block[16];
+	memset (stream_block, 0 , 16);
+	memcpy (iv, (uint8_t *)"1234567890123456", 16);
+	memcpy (key, (uint8_t *)"1234567890123456", KEY_SIZE);
+
+	mbedtls_aes_context aes_ctx;
+	mbedtls_aes_init(&aes_ctx);
+	mbedtls_aes_setkey_enc(&aes_ctx, key, KEY_SIZE*8);
+	ret = mbedtls_aes_crypt_ctr(&aes_ctx, len, &nc_off, iv, stream_block, in, out);
+	mbedtls_aes_free(&aes_ctx);
+
+	return ret; 
+}
+
+int mbed_gen_pair(uint8_t * pub, uint8_t * pri)
+{
+	const unsigned char pers[] = "ecdh";
+	int ret;
+	mbedtls_pk_context ctx;
+	mbedtls_entropy_context entropy;
+	mbedtls_ctr_drbg_context ctr_drbg;
+
+	ret = mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy, pers, 4);
+	if( ret != 0 )
+		return 1;
+
+	ret = mbedtls_pk_setup(&ctx, mbedtls_pk_info_from_type(MBEDTLS_PK_ECKEY));
+	if( ret != 0 )
+	{
+		mbedtls_ctr_drbg_free(&ctr_drbg);
+		mbedtls_entropy_free(&entropy);
+		return 2;
+	}
+
+	// secp384r1
+	ret = mbedtls_ecp_gen_key(MBEDTLS_ECP_DP_SECP384R1, mbedtls_pk_ec(ctx), mbedtls_ctr_drbg_random, &ctr_drbg);
+	if( ret != 0 )
+	{
+		mbedtls_pk_free(&ctx);
+		mbedtls_ctr_drbg_free(&ctr_drbg);
+		mbedtls_entropy_free(&entropy);
+		return 3;
+	}
+
+	// Write public key to pub buffer
+	ret = mbedtls_pk_write_pubkey_pem(&ctx, pub, ECC_PUBLIC_KEY_SIZE);
+	if(ret != 0)
+	{
+		mbedtls_pk_free(&ctx);
+		mbedtls_ctr_drbg_free(&ctr_drbg);
+		mbedtls_entropy_free(&entropy);
+		return 4;
+	}
+
+	// Write private key to priv buffer
+	ret = mbedtls_pk_write_key_pem(&ctx, pri, ECC_PRIVATE_KEY_SIZE);
+	if(ret != 0)
+	{
+		mbedtls_pk_free(&ctx);
+		mbedtls_ctr_drbg_free(&ctr_drbg);
+		mbedtls_entropy_free(&entropy);
+		return 5;
+	}
+
+	mbedtls_pk_free(&ctx);
+	mbedtls_ctr_drbg_free(&ctr_drbg);
+	mbedtls_entropy_free(&entropy);
+	return 0;
+}
+
+uint8_t mbed_ecdh(uint8_t *privkey, uint8_t * public, uint8_t * secret, size_t * len)
 {
 	int ret = 0;
 
@@ -128,48 +222,5 @@ uint8_t ecdh(uint8_t *privkey, uint8_t * public, uint8_t * secret, size_t * len)
 	mbedtls_pk_free(&pk_ctx_pri);
 	ctx_srv.d = oldD;
 	mbedtls_ecdh_free(&ctx_srv);
-	return 0;
-}
-
-// KDF: SHA256 with salt
-// PKCS#5 Key derivation
-uint8_t kdf(uint8_t * salt, size_t saltlen, uint8_t * shared_secret, size_t len, uint8_t *key)
-{
-	int ret;
-	const mbedtls_md_info_t *md_info;
-	mbedtls_md_type_t md_type = MBEDTLS_MD_SHA256;
-	mbedtls_md_context_t md_ctx;
-	mbedtls_md_init( &md_ctx );
-
-	// Set hashing context first
-	md_info = mbedtls_md_info_from_type( md_type );
-	if( md_info == NULL )
-	{
-		mbedtls_md_free(&md_ctx);
-		return 1;
-	}
-
-	if( ( ret = mbedtls_md_setup( &md_ctx, md_info, 1 ) ) != 0 )
-	{
-		mbedtls_md_free(&md_ctx);
-		return 2;
-	}
-
-	// Generate new key from shared secret
-	// md_ctx - context
-	// shared_secret - generated from ecdh
-	// len - secret length
-	// salt - to add more entropy
-	// saltlen - salt length
-	// 1 - algorithm iteration count
-	// size of generated key
-	// key buffer
-	ret = mbedtls_pkcs5_pbkdf2_hmac(&md_ctx, shared_secret, len, salt, saltlen, 10000, KEY_SIZE*2, key);
-	if(ret != 0)
-	{
-		mbedtls_md_free(&md_ctx);
-		return 3;
-	}
-	mbedtls_md_free(&md_ctx);
 	return 0;
 }
