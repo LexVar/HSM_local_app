@@ -1,5 +1,12 @@
 #include "comms.h"
 
+static uint8_t global_key[32];
+
+void init_key (uint8_t * key)
+{
+	memcpy (global_key, key, KEY_SIZE);
+}
+
 // Receive a message from the other process
 // fd - pipe file descriptor
 // structure - pointer to structure where to save information
@@ -7,7 +14,7 @@
 uint32_t receive_from_connection (uint32_t fd, void * structure, uint32_t struct_size)
 {
 	uint32_t bytes;
-	uint8_t iv[16], key [16];
+	uint8_t iv[16];
 	uint8_t * in;
 
 	if ((fd = open(PIPE_NAME, O_RDONLY)) < 0) {
@@ -23,10 +30,29 @@ uint32_t receive_from_connection (uint32_t fd, void * structure, uint32_t struct
 		exit(0);
 	}
 
-	mbed_aes_crypt(iv, in, structure, struct_size, key);
+	mbed_aes_crypt(iv, in, structure, struct_size, global_key);
 	printf ("decrypted data: %s\n", (char *)structure);
 
 	free (in);
+	sleep(0.3);
+	close(fd);
+	return bytes;
+}
+uint32_t receive_plain (uint32_t fd, void * structure, uint32_t struct_size)
+{
+	uint32_t bytes;
+
+	if ((fd = open(PIPE_NAME, O_RDONLY)) < 0) {
+		perror("[SERVER] Cannot open pipe for reading: ");
+		exit(0);
+	}
+
+	if ((bytes = read(fd, structure, struct_size)) == -1) {
+		perror("Error reading from pipe: ");
+		close(fd);
+		exit(0);
+	}
+
 	sleep(0.3);
 	close(fd);
 	return bytes;
@@ -39,7 +65,7 @@ uint32_t receive_from_connection (uint32_t fd, void * structure, uint32_t struct
 uint32_t send_to_connection (uint32_t fd, void * structure, uint32_t struct_size)
 {
 	uint32_t bytes;
-	uint8_t iv[16], key [16];
+	uint8_t iv[16];
 	uint8_t * out;
 
 	if ((fd = open(PIPE_NAME, O_WRONLY)) < 0) {
@@ -47,7 +73,7 @@ uint32_t send_to_connection (uint32_t fd, void * structure, uint32_t struct_size
 		exit(0);
 	}
 	out = malloc(struct_size);
-	mbed_aes_crypt(iv, structure, out, struct_size, key);
+	mbed_aes_crypt(iv, structure, out, struct_size, global_key);
 	printf ("encrypted data: %s\n", out);
 	sleep (0.3);
 	if ((bytes = write(fd, out, struct_size)) == -1) {
@@ -58,6 +84,26 @@ uint32_t send_to_connection (uint32_t fd, void * structure, uint32_t struct_size
 	}
 
 	free(out);
+	sleep (0.3);
+	close(fd);
+	sleep (0.3);
+	return bytes;
+}
+uint32_t send_plain (uint32_t fd, void * structure, uint32_t struct_size)
+{
+	uint32_t bytes;
+
+	if ((fd = open(PIPE_NAME, O_WRONLY)) < 0) {
+		perror("[SERVER] Cannot open pipe for writing: ");
+		exit(0);
+	}
+	sleep (0.3);
+	if ((bytes = write(fd, structure, struct_size)) == -1) {
+		perror("Error writing to pipe: ");
+		close(fd);
+		exit(0);
+	}
+
 	sleep (0.3);
 	close(fd);
 	sleep (0.3);

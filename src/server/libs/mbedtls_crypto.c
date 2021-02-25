@@ -28,7 +28,7 @@ int mbed_aes_crypt(uint8_t * iv, uint8_t * in, uint8_t * out, uint16_t len, uint
 	uint8_t stream_block[16];
 	memset (stream_block, 0 , 16);
 	memcpy (iv, (uint8_t *)"1234567890123456", 16);
-	memcpy (key, (uint8_t *)"1234567890123456", KEY_SIZE);
+	// memcpy (key, (uint8_t *)"1234567890123456", KEY_SIZE);
 
 	mbedtls_aes_context aes_ctx;
 	mbedtls_aes_init(&aes_ctx);
@@ -39,19 +39,27 @@ int mbed_aes_crypt(uint8_t * iv, uint8_t * in, uint8_t * out, uint16_t len, uint
 	return ret; 
 }
 
-int mbed_gen_pair(uint8_t * pub, uint8_t * pri)
+int mbed_gen_pair(uint8_t * pri, uint8_t * pub)
 {
 	const unsigned char pers[] = "ecdh";
 	int ret;
 	mbedtls_pk_context ctx;
 	mbedtls_entropy_context entropy;
 	mbedtls_ctr_drbg_context ctr_drbg;
+	mbedtls_entropy_init( &entropy );
+	mbedtls_ctr_drbg_init(&ctr_drbg);
 
 	ret = mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy, pers, 4);
 	if( ret != 0 )
+	{
+		mbedtls_ctr_drbg_free(&ctr_drbg);
+		mbedtls_entropy_free(&entropy);
+		mbedtls_pk_free(&ctx);
 		return 1;
+	}
 
 	ret = mbedtls_pk_setup(&ctx, mbedtls_pk_info_from_type(MBEDTLS_PK_ECKEY));
+	printf ("hello: %d\n", ret);
 	if( ret != 0 )
 	{
 		mbedtls_ctr_drbg_free(&ctr_drbg);
@@ -70,7 +78,7 @@ int mbed_gen_pair(uint8_t * pub, uint8_t * pri)
 	}
 
 	// Write public key to pub buffer
-	ret = mbedtls_pk_write_pubkey_pem(&ctx, pub, ECC_PUBLIC_KEY_SIZE);
+	ret = mbedtls_pk_write_pubkey_pem(&ctx, pub, 1000);
 	if(ret != 0)
 	{
 		mbedtls_pk_free(&ctx);
@@ -80,7 +88,7 @@ int mbed_gen_pair(uint8_t * pub, uint8_t * pri)
 	}
 
 	// Write private key to priv buffer
-	ret = mbedtls_pk_write_key_pem(&ctx, pri, ECC_PRIVATE_KEY_SIZE);
+	ret = mbedtls_pk_write_key_pem(&ctx, pri, 1000);
 	if(ret != 0)
 	{
 		mbedtls_pk_free(&ctx);

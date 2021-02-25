@@ -267,6 +267,11 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetPIN)(CK_SESSION_HANDLE hSession, CK_UTF8CHAR_PTR 
 
 CK_DEFINE_FUNCTION(CK_RV, C_OpenSession)(CK_SLOT_ID slotID, CK_FLAGS flags, CK_VOID_PTR pApplication, CK_NOTIFY Notify, CK_SESSION_HANDLE_PTR phSession)
 {
+	uint8_t pub[1000], priv[1000];
+	uint8_t buf[128], gen_key[KEY_SIZE*2];
+	uint16_t buf_len, pub_len;
+	int ret;
+
 	if (!init)
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 
@@ -290,6 +295,30 @@ CK_DEFINE_FUNCTION(CK_RV, C_OpenSession)(CK_SLOT_ID slotID, CK_FLAGS flags, CK_V
 
 	*phSession = session_count-1;
 
+	// Generate public key pair
+	if ((ret = mbed_gen_pair(priv, pub)) != 0)
+		printf ("Error generating key pair: %d\n", ret);
+
+	// Send public key
+	pub_len = strlen((char *) pub);
+	send_plain(pipe_fd, &pub_len, 2);
+	send_plain(pipe_fd, pub, pub_len);
+
+	// Receive peer's public key
+	receive_plain(pipe_fd, &pub_len, 2);
+	receive_plain(pipe_fd, pub, pub_len);
+
+	// Generate secret with ECDH
+	if ((ret = mbed_ecdh(priv, pub, buf, (size_t *)&buf_len)) != 0)
+		printf ("Error ECDH: %d\n", ret);
+
+	// Derivate key with SHA-256
+	if ((ret = mbed_sha256(buf, buf_len, gen_key)) != 0)
+		printf ("Error SHA256: %d\n", ret);
+
+	init_key (gen_key);
+
+	printf ("Key: %s\n", (char *)gen_key);
 	return CKR_OK;
 }
 

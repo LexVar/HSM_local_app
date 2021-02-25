@@ -4,13 +4,40 @@ uint8_t AUTH_PIN[PIN_SIZE];
 struct request req;		// request structure
 struct response resp;		// response structure
 uint8_t authenticated = 0;	// Flag, 1-authenticated, 0-not authenticated
-uint32_t pipe_fd;	// Pipe descriptor
+uint32_t pipe_fd;		// Pipe descriptor
 uint8_t key_set[DATA_SIZE], key[DATA_SIZE];
 uint16_t keylen, keyl;
 
 int main (void)
 {
+	uint8_t pub[1000], peer[1000], priv[1000];
+	uint8_t buf[128], gen_key[HASH_SIZE], ret;
+	uint16_t buf_len, pub_len;
 	init();
+
+	// Generate public key pair
+	if ((ret = mbed_gen_pair(priv, pub)) != 0)
+		printf ("Error generating pair: %d\n", ret);
+	
+	// Receive client's public key: size+pub
+	receive_plain(pipe_fd, &pub_len, 2);
+	receive_plain(pipe_fd, peer, pub_len);
+
+	pub_len = strlen((char *)pub);
+	// Send generated public key: size+pub
+	send_plain(pipe_fd, &pub_len, 2);
+	send_plain(pipe_fd, pub, pub_len);
+
+	if ((ret = mbed_ecdh(priv, peer, buf, (size_t *)&buf_len)) != 0)
+		printf ("Error ECDH: %d\n", ret);
+
+	if ((ret = mbed_sha256(buf, buf_len, gen_key)) != 0)
+		printf ("Error SHA256: %d\n", ret);
+	
+	// Save key in buffer
+	init_key (gen_key);
+
+	printf ("Key: %s\n", (char *)gen_key);
 
 	// load cryptography libraries
 	// init_crypto_state();

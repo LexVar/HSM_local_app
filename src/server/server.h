@@ -9,7 +9,7 @@
 #include <inttypes.h>
 
 #include "../comms.h"
-#include "../protocol.h"
+// #include "../protocol.h"
 
 #include "libs/crypto.h"
 #include "libs/keys.h"

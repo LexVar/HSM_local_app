@@ -12,17 +12,20 @@
 
 #define PIPE_NAME "/tmp/connection" // Pipe name
 
+void init_key (uint8_t * key);
 // Receive a message from the other process
 // fd - pipe file descriptor
 // structure - pointer to structure where to save information
 // struct_size - structure size in bytes sizeof(..)
 uint32_t receive_from_connection (uint32_t fd, void * structure, uint32_t struct_size);
+uint32_t receive_plain (uint32_t fd, void * structure, uint32_t struct_size);
 
 // Send a message from the other process
 // fd - pipe file descriptor
 // structure - pointer to structure to send through pipe
 // struct_size - structure size in bytes sizeof(..)
 uint32_t send_to_connection (uint32_t fd, void * structure, uint32_t struct_size);
+uint32_t send_plain (uint32_t fd, void * structure, uint32_t struct_size);
 
 uint8_t send_status(uint32_t  pipe_fd, uint8_t status);
 void sendOK(uint32_t pipe_fd, uint8_t * msg);
