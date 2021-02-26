@@ -6,19 +6,19 @@ MBEDTLS_DIR = $(LIBS_DIR)/mbedtls
 BIN_DIR = ./bin
 
 # Include all precompiled libtomcrypt object files
-SRCS := $(shell find $(MBEDTLS_DIR) -name *.c)
+# SRCS := $(shell find $(MBEDTLS_DIR) -name *.c)
 
 CC = gcc
-CFLAGS = -Wall -I$(MBEDTLS_DIR)/include
+CFLAGS = -Wall -I$(MBEDTLS_DIR)/include -L ./libs 
 # CFLAGS = -Wall #-Wextra -Werror -pedantic
 
-LIBS = -lcrypto -lssl
+LIBS = -lcrypto -lssl -lmbedtls -lmbedcrypto #-lmbedx509
 
 server: $(SERVER_DIR)/server.c $(LIBS_DIR)/crypto.c $(LIBS_DIR)/keys.c $(SOURCE_DIR)/comms.c $(LIBS_DIR)/openssl_ecdsa.c $(LIBS_DIR)/mbedtls_crypto.c $(SRCS) #$(LIBS_DIR)/openssl_ecdh.c #$(LIBS_DIR)/mbed_ecdh.c $(LIBS_DIR)/mbed_ecdsa.c $(SRCS)
 	$(CC) $(CFLAGS) $^ -o $(BIN_DIR)/server $(LIBS) 
 
 client: $(CLIENT_DIR)/client.c $(SOURCE_DIR)/comms.c $(LIBS_DIR)/mbedtls_crypto.c $(SRCS)
-	$(CC) $(CFLAGS) $^ -o $(BIN_DIR)/client
+	$(CC) $(CFLAGS) $^ -o $(BIN_DIR)/client $(LIBS)
 
 clean:
 	rm data.txt data.enc key.enc signature.txt
