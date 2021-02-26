@@ -11,10 +11,7 @@ int mbed_sha256 (uint8_t * in, uint16_t len, uint8_t * hash)
 // Calculates HMAC with SHA-256 of in buffer
 int mbed_hmac (uint8_t * key, uint8_t * in, uint16_t len, uint8_t * out)
 {
-
-	int ret;
-	ret = mbedtls_md_hmac(mbedtls_md_info_from_type(MBEDTLS_MD_SHA256), key, KEY_SIZE*2*8, in, len, out);
-	return ret;
+	 return mbedtls_md_hmac(mbedtls_md_info_from_type(MBEDTLS_MD_SHA256), key, KEY_SIZE*2*8, in, len, out);
 }
 
 // Returns 0 if successfull
@@ -27,7 +24,7 @@ int mbed_aes_crypt(uint8_t * iv, uint8_t * in, uint8_t * out, uint16_t len, uint
 	int ret;
 	uint8_t stream_block[16];
 	memset (stream_block, 0 , 16);
-	memcpy (iv, (uint8_t *)"1234567890123456", 16);
+	// memcpy (iv, (uint8_t *)"1234567890123456", 16);
 	// memcpy (key, (uint8_t *)"1234567890123456", KEY_SIZE);
 
 	mbedtls_aes_context aes_ctx;
@@ -36,7 +33,7 @@ int mbed_aes_crypt(uint8_t * iv, uint8_t * in, uint8_t * out, uint16_t len, uint
 	ret = mbedtls_aes_crypt_ctr(&aes_ctx, len, &nc_off, iv, stream_block, in, out);
 	mbedtls_aes_free(&aes_ctx);
 
-	return ret; 
+	return ret;
 }
 
 int mbed_gen_pair(uint8_t * pri, uint8_t * pub)

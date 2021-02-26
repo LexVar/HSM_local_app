@@ -145,7 +145,7 @@ uint32_t encrypt(uint8_t * in, uint32_t inlen, uint8_t * out, uint8_t * key_file
 	uint8_t iv_cipher[DATA_SIZE];
 	uint8_t iv[AES_BLOCK_SIZE];
 	uint8_t key[2*KEY_SIZE], padded_key[KEY_SIZE*3];
-	uint32_t size;
+	int size, ret;
 
 	// read keys from file
 	if(read_key(key, key_file, 2*KEY_SIZE) == 0)
@@ -164,16 +164,21 @@ uint32_t encrypt(uint8_t * in, uint32_t inlen, uint8_t * out, uint8_t * key_file
 
 	/* perform ctr encryption, return cipher/plaintext */
 	size = ctr_encryption(in, inlen, iv, ciphertext, key);
+	// ret = mbed_aes_crypt(iv, in, ciphertext, inlen, key);
+	// if (ret == 0)
+	//         size = inlen;
 
+	printf ("Size: %d\n", size);
 	/* Concatenate iv+ciphertet to compute mac */
 	concatenate (iv_cipher, iv, 0, AES_BLOCK_SIZE);
 	concatenate (iv_cipher, ciphertext, AES_BLOCK_SIZE, size);
 
 	/* compute mac from IV+CIPHER/PLAINTEXT */
 	mac = compute_hmac(mac_key, iv_cipher, AES_BLOCK_SIZE+size);
+	// ret = mbed_hmac (mac_key, iv_cipher, AES_BLOCK_SIZE+size, mac);
 
 	// concatenate the 3 components for final result
-	if (mac != NULL && size > 0)
+	if (size > 0)
 	{
 		/* MAC+IV+MESSAGE to out ptr */
 		concatenate (out, mac, 0, MAC_SIZE);
@@ -208,6 +213,7 @@ uint32_t decrypt(uint8_t * in, uint32_t inlen, uint8_t * out, uint8_t * key_file
 	uint8_t key[2*KEY_SIZE];
 	uint8_t * mac_key;
 	uint32_t total_bytes = 0;
+	int ret;
 
 	if (inlen <= AES_BLOCK_SIZE+MAC_SIZE)
 		return 0;
@@ -228,19 +234,22 @@ uint32_t decrypt(uint8_t * in, uint32_t inlen, uint8_t * out, uint8_t * key_file
 
 	/* Concatenate iv+ciphertext to compute mac */
 	concatenate (iv_cipher, iv, 0, AES_BLOCK_SIZE);
-	printf ("ivc %s...\n", iv_cipher);
+	// printf ("ivc %s...\n", iv_cipher);
 	concatenate (iv_cipher, ciphertext, AES_BLOCK_SIZE, total_bytes);
 
 	/* compute mac from IV+CIPHER */
 	computed_mac = compute_hmac(mac_key, iv_cipher, AES_BLOCK_SIZE+total_bytes);
-
+	// ret = mbed_hmac (mac_key, iv_cipher, AES_BLOCK_SIZE+total_bytes, computed_mac);
 	/* verify if macs are the same */
-	if (compare_strings(mac, computed_mac, MAC_SIZE) == 0)
+	
+	if (computed_mac != NULL && strncmp((char *)mac, (char *)computed_mac, MAC_SIZE) == 0)
 	{
 		printf ("MAC successfully verified, proceding to decryption...\n");
 
 		/* perform ctr encryption, return IV+CIPHER/PLAINTEXT */
 		total_bytes = ctr_encryption(ciphertext, total_bytes, iv, plaintext, key);
+		// ret = mbed_aes_crypt(iv, ciphertext, plaintext, total_bytes, key);
+		printf ("Plain: %s\n", plaintext);
 
 		// Copy plaintext to out string and add null terminate uint8_t
 		concatenate(out, plaintext, 0, total_bytes);

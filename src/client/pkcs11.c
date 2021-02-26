@@ -267,10 +267,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetPIN)(CK_SESSION_HANDLE hSession, CK_UTF8CHAR_PTR 
 
 CK_DEFINE_FUNCTION(CK_RV, C_OpenSession)(CK_SLOT_ID slotID, CK_FLAGS flags, CK_VOID_PTR pApplication, CK_NOTIFY Notify, CK_SESSION_HANDLE_PTR phSession)
 {
-	uint8_t pub[1000], priv[1000];
-	uint8_t buf[128], gen_key[KEY_SIZE*2];
-	uint16_t buf_len, pub_len;
-	int ret;
+	// uint8_t pub[1000], priv[1000];
+	// uint8_t buf[128], gen_key[KEY_SIZE*2];
+	// uint16_t buf_len, pub_len;
+	// int ret;
 
 	if (!init)
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -294,7 +294,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_OpenSession)(CK_SLOT_ID slotID, CK_FLAGS flags, CK_V
 	// s.obj = NULL_PTR; // Object
 
 	*phSession = session_count-1;
-
+	/*
 	// Generate public key pair
 	if ((ret = mbed_gen_pair(priv, pub)) != 0)
 		printf ("Error generating key pair: %d\n", ret);
@@ -319,6 +319,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_OpenSession)(CK_SLOT_ID slotID, CK_FLAGS flags, CK_V
 	init_key (gen_key);
 
 	printf ("Key: %s\n", (char *)gen_key);
+	*/
 	return CKR_OK;
 }
 
