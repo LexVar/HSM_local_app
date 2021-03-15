@@ -10,23 +10,25 @@ uint16_t keylen, keyl;
 
 void trade_keys()
 {
-	uint8_t pub[1000], peer[1000], priv[1000];
+	uint8_t pub[96], peer[96], priv[48];
 	uint8_t buf[128], gen_key[HASH_SIZE], ret;
 	uint16_t buf_len, pub_len;
 	// Generate public key pair
-	if ((ret = mbed_gen_pair(priv, pub)) != 0)
+	// if ((ret = mbed_gen_pair(priv, pub)) != 0)
+	if ((ret = mbed_gen_pair_scalar(priv, pub)) != 0)
 		printf ("Error generating pair: %d\n", ret);
 	
 	// Receive client's public key: size+pub
 	receive_plain(pipe_fd, &pub_len, 2);
 	receive_plain(pipe_fd, peer, pub_len);
 
-	pub_len = strlen((char *)pub);
+	pub_len = 96;
 	// Send generated public key: size+pub
 	send_plain(pipe_fd, &pub_len, 2);
 	send_plain(pipe_fd, pub, pub_len);
 
-	if ((ret = mbed_ecdh(priv, peer, buf, (size_t *)&buf_len)) != 0)
+	// if ((ret = mbed_ecdh(priv, peer, buf, (size_t *)&buf_len)) != 0)
+	if ((ret = mbed_ecdh_scalar(priv, peer, buf, (size_t *)&buf_len)) != 0)
 		printf ("Error ECDH: %d\n", ret);
 
 	if ((ret = mbed_sha256(buf, buf_len, gen_key)) != 0)
@@ -42,11 +44,12 @@ int main (void)
 {
 	init();
 
-	/* trade_keys(); */
+	trade_keys();
 	
 	// load cryptography libraries
-	// init_crypto_state();
+	init_crypto_state();
 
+	// ----------------- Key set stuff -----------------
 	// init_keys((uint8_t *)"41203491263490123428136482364iub", 32);
 
 	// read_key_set(key_set, &keylen);
@@ -56,6 +59,7 @@ int main (void)
 	// read_key_set(key_set, &keylen);
 
 	// fetch_key_from_set(key_set, keylen, 2, key, &keyl);
+	// ----------------- Key set stuff -----------------
 
 	while(1)
 	{

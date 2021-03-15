@@ -9,8 +9,13 @@
 #include <inttypes.h>
 #include "protocol.h"
 #include "server/libs/mbedtls_crypto.h"
+#include "server/libs/crypto.h"
 
 #define PIPE_NAME "/tmp/connection" // Pipe name
+// #define PIPE0 "/tmp/connection0" // Pipe name
+// #define PIPE1 "/tmp/connection1" // Pipe name
+
+// uint32_t fd[2];
 
 void init_key (uint8_t * key);
 // Receive a message from the other process

@@ -145,7 +145,7 @@ uint32_t encrypt(uint8_t * in, uint32_t inlen, uint8_t * out, uint8_t * key_file
 	uint8_t iv_cipher[DATA_SIZE];
 	uint8_t iv[AES_BLOCK_SIZE];
 	uint8_t key[2*KEY_SIZE], padded_key[KEY_SIZE*3];
-	int size, ret;
+	int size;
 
 	// read keys from file
 	if(read_key(key, key_file, 2*KEY_SIZE) == 0)
@@ -213,7 +213,6 @@ uint32_t decrypt(uint8_t * in, uint32_t inlen, uint8_t * out, uint8_t * key_file
 	uint8_t key[2*KEY_SIZE];
 	uint8_t * mac_key;
 	uint32_t total_bytes = 0;
-	int ret;
 
 	if (inlen <= AES_BLOCK_SIZE+MAC_SIZE)
 		return 0;
