@@ -269,7 +269,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_OpenSession)(CK_SLOT_ID slotID, CK_FLAGS flags, CK_V
 {
 	uint8_t pub[96], priv[48];
 	uint8_t buf[128], gen_key[KEY_SIZE*2];
-	uint16_t buf_len, pub_len;
+	uint8_t buf_len, pub_len;
 	int ret;
 
 	if (!init)
@@ -291,10 +291,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_OpenSession)(CK_SLOT_ID slotID, CK_FLAGS flags, CK_V
 	s.operation[P11_OP_VERIFY] = 0;
 	s.op_code = 0;
 
-	printf ("Starting ..\n");
 	// s.obj = NULL_PTR; // Object
-
 	*phSession = session_count-1;
+
+	printf ("Exchanging keys...\n");
 	
 	// Generate public key pair
 	if ((ret = mbed_gen_pair_scalar(priv, pub)) != 0)
@@ -302,15 +302,15 @@ CK_DEFINE_FUNCTION(CK_RV, C_OpenSession)(CK_SLOT_ID slotID, CK_FLAGS flags, CK_V
 
 	// Send public key
 	pub_len = 96;
-	send_plain(pipe_fd, &pub_len, 2);
+	send_plain(pipe_fd, &pub_len, 1);
 	send_plain(pipe_fd, pub, pub_len);
 
 	// Receive peer's public key
-	receive_plain(pipe_fd, &pub_len, 2);
+	receive_plain(pipe_fd, &pub_len, 1);
 	receive_plain(pipe_fd, pub, pub_len);
 
 	// Generate secret with ECDH
-	if ((ret = mbed_ecdh(priv, pub, buf, (size_t *)&buf_len)) != 0)
+	if ((ret = mbed_ecdh_scalar(priv, pub, buf, (size_t *)&buf_len)) != 0)
 		printf ("Error ECDH: %d\n", ret);
 
 	// Derivate key with SHA-256
@@ -319,7 +319,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_OpenSession)(CK_SLOT_ID slotID, CK_FLAGS flags, CK_V
 
 	init_key (gen_key);
 
-	printf ("Key: %s\n", (char *)gen_key);
+	printf ("Symmetric Key: %s\n", (char *)gen_key);
 	
 	return CKR_OK;
 }

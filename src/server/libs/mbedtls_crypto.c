@@ -37,11 +37,13 @@ int mbed_aes_crypt(uint8_t * iv, uint8_t * in, uint8_t * out, uint16_t len, uint
 
 int mbed_gen_pair_scalar(uint8_t * pri, uint8_t * pub)
 {
-	const unsigned char pers[] = "ecdh";
+	const unsigned char pers[] = "ecdh2";
 	int ret;
 	mbedtls_pk_context ctx;
+	ctx.pk_info = NULL;
 	mbedtls_entropy_context entropy;
 	mbedtls_ctr_drbg_context ctr_drbg;
+
 	mbedtls_entropy_init( &entropy );
 	mbedtls_ctr_drbg_init(&ctr_drbg);
 
@@ -55,13 +57,13 @@ int mbed_gen_pair_scalar(uint8_t * pri, uint8_t * pub)
 	}
 
 	ret = mbedtls_pk_setup(&ctx, mbedtls_pk_info_from_type(MBEDTLS_PK_ECKEY));
+	printf ("hello: %d\n", ret);
 	if( ret != 0 )
 	{
 		mbedtls_ctr_drbg_free(&ctr_drbg);
 		mbedtls_entropy_free(&entropy);
 		return 2;
 	}
-
 	// secp384r1
 	ret = mbedtls_ecp_gen_key(MBEDTLS_ECP_DP_SECP384R1, mbedtls_pk_ec(ctx), mbedtls_ctr_drbg_random, &ctr_drbg);
 	if( ret != 0 )
@@ -107,6 +109,7 @@ int mbed_gen_pair(uint8_t * pri, uint8_t * pub)
 	mbedtls_pk_context ctx;
 	mbedtls_entropy_context entropy;
 	mbedtls_ctr_drbg_context ctr_drbg;
+
 	mbedtls_entropy_init( &entropy );
 	mbedtls_ctr_drbg_init(&ctr_drbg);
 
@@ -316,6 +319,9 @@ uint8_t mbed_ecdh_scalar(uint8_t *privkey, uint8_t * public, uint8_t * secret, s
 	mbedtls_ecdh_context ctx_srv;
 	mbedtls_ecdh_init(&ctx_srv);
 
+	// Load group for P384 curve
+	mbedtls_ecp_group_load (&ctx_srv.grp, MBEDTLS_ECP_DP_SECP384R1);
+
 	ret = mbedtls_mpi_read_binary(&ctx_srv.d, privkey, 48u);
 	if( ret != 0 )
 	{
@@ -355,6 +361,7 @@ uint8_t mbed_ecdh_scalar(uint8_t *privkey, uint8_t * public, uint8_t * secret, s
 
 	// compute shared secret
 	ret = mbedtls_ecdh_calc_secret(&ctx_srv, len, secret, 128u, mbedtls_ctr_drbg_random, &ec_ctr_drbg);
+	printf ("hello: %d\n", ret);
 	if(ret != 0)
 	{
 		mbedtls_ctr_drbg_free(&ec_ctr_drbg);
