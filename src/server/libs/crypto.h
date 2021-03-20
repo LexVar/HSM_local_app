@@ -8,6 +8,7 @@
 #include <openssl/sha.h>
 #include <inttypes.h>
 
+#include "mbedtls_crypto.h"
 #include "../../protocol.h"
 #include "../../comms.h"
 

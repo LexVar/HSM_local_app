@@ -1,6 +1,20 @@
 #include "crypto.h"
 #include "aes/aes_ctr.c"
 
+uint16_t padd_block(uint8_t * buf, uint16_t len)
+{
+	uint8_t padding;
+
+	if (len%BLOCK_SIZE == 0)
+		padding = 0;
+	else
+		padding = BLOCK_SIZE - len%BLOCK_SIZE;
+
+	memset (buf + len, 0, padding);
+
+	return len + padding;
+}
+
 uint8_t simpleSHA256(void * input, uint64_t length, uint8_t * md)
 {
 	SHA256_CTX context;
@@ -139,62 +153,52 @@ uint32_t ctr_encryption(uint8_t * plaintext, uint32_t size, uint8_t * iv, uint8_
 // key_file - file of symmetric key (for AES and HMAC)
 uint32_t encrypt(uint8_t * in, uint32_t inlen, uint8_t * out, uint8_t * key_file)
 {
-	uint8_t * mac;
 	uint8_t * mac_key;
-	uint8_t ciphertext[DATA_SIZE];
-	uint8_t iv_cipher[DATA_SIZE];
-	uint8_t iv[AES_BLOCK_SIZE];
-	uint8_t key[2*KEY_SIZE], padded_key[KEY_SIZE*3];
-	int size;
+	uint8_t * ciphertext = out + MAC_SIZE + AES_BLOCK_SIZE;
+	uint8_t * iv = out + MAC_SIZE;
+	uint8_t * iv_cipher = out + MAC_SIZE;
+	uint8_t * mac = out;
+	uint8_t key[3*KEY_SIZE];
+	uint8_t iv2[AES_BLOCK_SIZE];
+	int ret;
+
+	// Padd input buffer block with zeros if needed
+	inlen = padd_block(in, inlen);
 
 	// read keys from file
 	if(read_key(key, key_file, 2*KEY_SIZE) == 0)
 		return 0;
 
-	memcpy (padded_key, key, 2*KEY_SIZE);
-	memset (padded_key+2*KEY_SIZE, 0, KEY_SIZE);
+	memset (key+2*KEY_SIZE, 0, KEY_SIZE);
 
 	// set mac key pointer
 	mac_key = &key[KEY_SIZE];
 
 	// Generate random IV
 	// USE NRGB HERE
-	if ( !RAND_bytes(iv, sizeof(iv)) )
-		exit(-1);
+	if ( !RAND_bytes(iv2, AES_BLOCK_SIZE) )
+		return 0;
+	memcpy (iv, iv2, AES_BLOCK_SIZE);
 
-	/* perform ctr encryption, return cipher/plaintext */
-	size = ctr_encryption(in, inlen, iv, ciphertext, key);
-	// ret = mbed_aes_crypt(iv, in, ciphertext, inlen, key);
-	// if (ret == 0)
-	//         size = inlen;
+	// perform ctr encryption, return cipher/plaintext
+	// inlen = ctr_encryption(in, inlen, iv, ciphertext, key);
+	ret = mbed_aes_crypt(iv2, in, ciphertext, inlen, key);
 
-	printf ("Size: %d\n", size);
-	/* Concatenate iv+ciphertet to compute mac */
-	concatenate (iv_cipher, iv, 0, AES_BLOCK_SIZE);
-	concatenate (iv_cipher, ciphertext, AES_BLOCK_SIZE, size);
+	// compute mac from IV+PLAINTEXT
+	ret = mbed_hmac (mac_key, iv_cipher, AES_BLOCK_SIZE+inlen, mac);
 
-	/* compute mac from IV+CIPHER/PLAINTEXT */
-	mac = compute_hmac(mac_key, iv_cipher, AES_BLOCK_SIZE+size);
-	// ret = mbed_hmac (mac_key, iv_cipher, AES_BLOCK_SIZE+size, mac);
-
-	// concatenate the 3 components for final result
-	if (size > 0)
+	if (ret == 0)
 	{
-		/* MAC+IV+MESSAGE to out ptr */
-		concatenate (out, mac, 0, MAC_SIZE);
-		concatenate (out, iv, MAC_SIZE, AES_BLOCK_SIZE);
-		concatenate (out, ciphertext, MAC_SIZE+AES_BLOCK_SIZE, size);
-
-		printf ("Message succesfully encrypted..\n");
-		size = size+AES_BLOCK_SIZE+MAC_SIZE;
+		printf ("Message encrypted..\n");
+		inlen = inlen+AES_BLOCK_SIZE+MAC_SIZE;
 	}
 	else 
 	{
-		printf ("Error computing the MAC..\n");
-		size = 0;
+		printf ("Error..\n");
+		inlen = 0;
 	}
 
-	return size;
+	return inlen;
 }
 
 // Decrypts in buffer of inlen size, with key in key_file. Stores plaintext at out buffer.
@@ -204,66 +208,55 @@ uint32_t encrypt(uint8_t * in, uint32_t inlen, uint8_t * out, uint8_t * key_file
 // key_file - file of key used to encrypt ciphertext
 uint32_t decrypt(uint8_t * in, uint32_t inlen, uint8_t * out, uint8_t * key_file)
 {
-	uint8_t mac[MAC_SIZE];
-	uint8_t * computed_mac;
-	uint8_t * ciphertext = in+MAC_SIZE+AES_BLOCK_SIZE;
-	uint8_t plaintext[DATA_SIZE];
-	uint8_t iv_cipher[DATA_SIZE];
-	uint8_t iv[AES_BLOCK_SIZE];
-	uint8_t key[2*KEY_SIZE];
+	uint8_t * mac = in;
+	uint8_t * iv = in + MAC_SIZE;
+	uint8_t * ciphertext = in + MAC_SIZE + AES_BLOCK_SIZE;
+	uint8_t * iv_cipher = in + MAC_SIZE;
+	uint8_t computed_mac[MAC_SIZE];
+	uint8_t key[3*KEY_SIZE];
 	uint8_t * mac_key;
-	uint32_t total_bytes = 0;
+	int ret;
 
-	if (inlen <= AES_BLOCK_SIZE+MAC_SIZE)
+	if (inlen <= (AES_BLOCK_SIZE+MAC_SIZE))
 		return 0;
 
 	// read key from file
 	if (read_key(key, key_file, 2*KEY_SIZE) == 0)
 		return 0;
 
+	memset (key+2*KEY_SIZE, 0, KEY_SIZE);
 	mac_key = &key[KEY_SIZE];
 
-	// Read the MAC
-	concatenate (mac, in, 0, MAC_SIZE);
+	inlen = inlen - MAC_SIZE - AES_BLOCK_SIZE;
 
-	// Read the IV
-	concatenate (iv, in+MAC_SIZE, 0, AES_BLOCK_SIZE);
+	// compute mac from IV+CIPHER
+	ret = mbed_hmac (mac_key, iv_cipher, AES_BLOCK_SIZE+inlen, computed_mac);
 
-	total_bytes = inlen - MAC_SIZE - AES_BLOCK_SIZE;
-
-	/* Concatenate iv+ciphertext to compute mac */
-	concatenate (iv_cipher, iv, 0, AES_BLOCK_SIZE);
-	// printf ("ivc %s...\n", iv_cipher);
-	concatenate (iv_cipher, ciphertext, AES_BLOCK_SIZE, total_bytes);
-
-	/* compute mac from IV+CIPHER */
-	computed_mac = compute_hmac(mac_key, iv_cipher, AES_BLOCK_SIZE+total_bytes);
-	// ret = mbed_hmac (mac_key, iv_cipher, AES_BLOCK_SIZE+total_bytes, computed_mac);
-	/* verify if macs are the same */
-	
-	if (computed_mac != NULL && strncmp((char *)mac, (char *)computed_mac, MAC_SIZE) == 0)
+	// verify if macs are the same
+	if (strncmp((char *)mac, (char *)computed_mac, MAC_SIZE) == 0)
 	{
-		printf ("MAC successfully verified, proceding to decryption...\n");
-
-		/* perform ctr encryption, return IV+CIPHER/PLAINTEXT */
-		total_bytes = ctr_encryption(ciphertext, total_bytes, iv, plaintext, key);
-		// ret = mbed_aes_crypt(iv, ciphertext, plaintext, total_bytes, key);
-		printf ("Plain: %s\n", plaintext);
+		printf ("MAC verified...\n");
+		// perform ctr encryption, return IV+CIPHER/PLAINTEXT
+		// total_bytes = ctr_encryption(ciphertext, total_bytes, iv, plaintext, key);
+		ret = mbed_aes_crypt(iv, ciphertext, out, inlen, key);
+		out[inlen] = 0;
+		printf ("Plain: %s\n", out);
+		printf ("length: %d\n", inlen);
 
 		// Copy plaintext to out string and add null terminate uint8_t
-		concatenate(out, plaintext, 0, total_bytes);
-		out[total_bytes] = 0;
 
-		if (total_bytes > 0)
+		if (ret == 0)
 			printf ("Message decrypted..\n");
+		else
+			inlen = 0;
 	}
 	else
 	{
-		total_bytes = 0;
+		inlen = 0;
 		printf ("Error verifing the mac!\n");
 	}
 
-	return total_bytes;
+	return inlen;
 }
 
 // Compute HMAC with SHA256 hashing, from ciphertext and IV

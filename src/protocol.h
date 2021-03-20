@@ -3,6 +3,7 @@
 
 #include <inttypes.h>
 
+#define BLOCK_SIZE 16
 #define DATA_SIZE 258		// 1 MB message size
 #define HASH_SIZE 32		// 256 bit hash from SHA-256
 #define MAC_SIZE 32		// 256 bit MAC from HMAC-SHA-256

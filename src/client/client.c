@@ -35,8 +35,8 @@ int main(void)
 		return 1;
 	}
 
-	while (1) {
-
+	while (1)
+	{
 		printf ("Press ENTER to continue...\n");
 		flush_stdin();
 
