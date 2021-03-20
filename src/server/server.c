@@ -44,9 +44,6 @@ int main (void)
 
 	trade_keys();
 	
-	// load cryptography libraries
-	init_crypto_state();
-
 	// ----------------- Key set stuff -----------------
 	// init_keys((uint8_t *)"41203491263490123428136482364iub", 32);
 
@@ -436,7 +433,8 @@ void new_comms_key ()
 	}
 
 	// Key derivation function from secret
-	resp.status = simpleSHA256(secret, len, key);
+	// resp.status = simpleSHA256(secret, len, key);
+	resp.status = mbed_sha256 (secret, len, key);
 
 	free(secret);
 	// If key was successfully derived, store it

@@ -2,11 +2,12 @@
 
 uint8_t encrypt_keyset (uint8_t *set, uint16_t setlen)
 {
-	uint8_t * mac, * mac_key;
+	uint8_t mac[MAC_SIZE], * mac_key;
 	uint8_t ciphertext[DATA_SIZE], out[DATA_SIZE];
-	uint8_t iv[AES_BLOCK_SIZE], key[3*KEY_SIZE];
+	uint8_t iv[BLOCK_SIZE], key[3*KEY_SIZE];
 	uint16_t cipherlen, outlen;
 	uint8_t status = 1;
+	int ret;
 
 	// fetch pre defined key
 	if(read_key(key, (uint8_t*)"keys/hsm.key", 2*KEY_SIZE) == 0)
@@ -18,27 +19,30 @@ uint8_t encrypt_keyset (uint8_t *set, uint16_t setlen)
 	memset(&key[2*KEY_SIZE], 0, KEY_SIZE);
 
 	// Generate random IV
-	if ( !RAND_bytes(iv, sizeof(iv)) )
-		exit(-1);
+	if( random_bytes(iv, sizeof(iv)) )
+		return status;
 
 	// Encrypt Key Set with CTR mode -> ciphertext
-	cipherlen = ctr_encryption(set, setlen, iv, ciphertext, key);
+	// cipherlen = ctr_encryption(set, setlen, iv, ciphertext, key);
+	ret = mbed_aes_crypt(iv, set, ciphertext, setlen, key);
+	cipherlen = setlen;
 
 	// concatenate the 3 components for final result
-	if (cipherlen > 0)
+	if (ret == 0)
 	{
 		// Concatenate size + IV + ciphertext of key set
-		outlen = cipherlen+AES_BLOCK_SIZE;
+		outlen = setlen+BLOCK_SIZE;
 		memcpy(out,(uint16_t *)&outlen, sizeof(uint16_t));
-		memcpy(out+sizeof(uint16_t), iv, AES_BLOCK_SIZE);
-		memcpy(out+sizeof(uint16_t)+AES_BLOCK_SIZE, ciphertext, cipherlen);
+		memcpy(out+sizeof(uint16_t), iv, BLOCK_SIZE);
+		memcpy(out+sizeof(uint16_t)+BLOCK_SIZE, ciphertext, cipherlen);
 
 		// total size of output
 		outlen += sizeof(uint16_t);
 		// compute mac from LENGTH+IV+CIPHER
-		mac = compute_hmac(mac_key, out, outlen);
+		// mac = compute_hmac(mac_key, out, outlen);
+		ret = mbed_hmac (mac_key, out, outlen, mac);
 
-		if (mac != NULL)
+		if (ret == 0)
 		{
 			printf ("Message succesfully encrypted..\nMAC Generated..\n");
 			// Write output to memory
@@ -75,11 +79,12 @@ uint8_t init_keys(uint8_t * new_key, uint16_t keylen)
 
 uint8_t read_key_set(uint8_t * out, uint16_t *keylen)
 {
-	uint8_t * computed_mac, * iv, *ciphertext, * mac_key, *keyptr;
+	uint8_t computed_mac[MAC_SIZE], * iv, *ciphertext, * mac_key, *keyptr;
 	uint8_t set[DATA_SIZE], mac[MAC_SIZE];
 	uint8_t key[3*KEY_SIZE];
 	uint16_t len;
 	uint8_t i, status = 1;
+	int ret;
 
 	// fetch pre defined key
 	if(read_key(key, (uint8_t*)"keys/hsm.key", 2*KEY_SIZE) == 0)
@@ -99,24 +104,29 @@ uint8_t read_key_set(uint8_t * out, uint16_t *keylen)
 	printf ("SET LENGTH: %d\n",len);
 
 	// Compute MAC of set
-	computed_mac = compute_hmac(mac_key, set, 2+len);
+	// computed_mac = compute_hmac(mac_key, set, 2+len);
+	ret = mbed_hmac (mac_key, set, 2+len, computed_mac);
 
 	// Read MAC from PUF slot
 	if(read_from_file((uint8_t*)"keys/keys.mac", mac) == 0)
 		return status;
 
 	// Compare computed MAC and MAC from PUF
-	if (computed_mac != NULL && strncmp((char *)mac, (char *)computed_mac, MAC_SIZE) == 0)
+	if (ret == 0 && strncmp((char *)mac, (char *)computed_mac, MAC_SIZE) == 0)
 	{
 		printf ("MAC validated..\nDecrypting keys..\n");
 
 		iv = &set[2]; // Iv ptr
 		printf ("IV: %s\n", iv);
 
-		ciphertext = set+2+AES_BLOCK_SIZE;
+		ciphertext = set+2+BLOCK_SIZE;
 
 		// Decrypt Key Set with CTR mode -> out
-		*keylen = ctr_encryption(ciphertext, len-AES_BLOCK_SIZE, iv, out, key);
+		// *keylen = ctr_encryption(ciphertext, len-BLOCK_SIZE, iv, out, key);
+		if (0 == mbed_aes_crypt(iv, ciphertext, out, len-BLOCK_SIZE, key))
+			*keylen = len-BLOCK_SIZE;
+		else
+			*keylen = 0;
 		
 		if (keylen > 0)
 		{
