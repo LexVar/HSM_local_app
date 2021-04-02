@@ -14,10 +14,10 @@ CFLAGS = -Wall -I$(MBEDTLS_DIR)/include -L ./libs
 
 LIBS = -lcrypto -lssl -lmbedtls -lmbedcrypto #-lmbedx509
 
-server: $(SERVER_DIR)/server.c $(LIBS_DIR)/crypto.c $(LIBS_DIR)/keys.c $(SOURCE_DIR)/comms.c $(LIBS_DIR)/openssl_ecdsa.c $(LIBS_DIR)/mbedtls_crypto.c $(SRCS) #$(LIBS_DIR)/openssl_ecdh.c #$(LIBS_DIR)/mbed_ecdh.c $(LIBS_DIR)/mbed_ecdsa.c $(SRCS)
+server: $(SERVER_DIR)/server.c $(LIBS_DIR)/crypto.c $(LIBS_DIR)/keys.c $(SOURCE_DIR)/comms.c $(LIBS_DIR)/openssl_ecdsa.c $(LIBS_DIR)/mbedtls_crypto.c #$(LIBS_DIR)/openssl_ecdh.c #$(LIBS_DIR)/mbed_ecdh.c $(LIBS_DIR)/mbed_ecdsa.c $(SRCS)
 	$(CC) $(CFLAGS) $^ -o $(BIN_DIR)/server $(LIBS) 
 
-client: $(CLIENT_DIR)/client.c $(SOURCE_DIR)/comms.c $(LIBS_DIR)/mbedtls_crypto.c $(SRCS)
+client: $(CLIENT_DIR)/client.c $(SOURCE_DIR)/comms.c $(LIBS_DIR)/crypto.c $(LIBS_DIR)/mbedtls_crypto.c
 	$(CC) $(CFLAGS) $^ -o $(BIN_DIR)/client $(LIBS)
 
 clean:

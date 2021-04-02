@@ -310,16 +310,20 @@ void authenticate()
 // Operation 4: decrypt + authenticate
 void encrypt_authenticate()
 {
-	uint8_t keyfile[ID_SIZE];
+	uint8_t keyfile[ID_SIZE], key[3*KEY_SIZE];
 
 	get_key_path(req.data.key_id, keyfile, (uint8_t *)".key");
 
+	// read keys from file
+	if(read_key(key, keyfile, 2*KEY_SIZE) == 0)
+		return;
+
 	// Encrypt/Decrypte data
 	if (req.op_code == 3)
-		resp.status = resp.data.data_size = encrypt(req.data.data, req.data.data_size, resp.data.data, keyfile);
+		resp.status = resp.data.data_size = encrypt(req.data.data, req.data.data_size, resp.data.data, key);
 	// Decrypt and authenticate data
 	else
-		resp.status = resp.data.data_size = decrypt(req.data.data, req.data.data_size, resp.data.data, keyfile);
+		resp.status = resp.data.data_size = decrypt(req.data.data, req.data.data_size, resp.data.data, key);
 	resp.data.data[resp.data.data_size] = 0;
 }
 

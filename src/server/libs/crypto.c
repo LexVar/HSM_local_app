@@ -52,23 +52,18 @@ uint8_t read_key(uint8_t * key, uint8_t * key_file, uint32_t key_size)
 // inlen - plaintext size
 // out - output ciphertext
 // key_file - file of symmetric key (for AES and HMAC)
-uint32_t encrypt(uint8_t * in, uint32_t inlen, uint8_t * out, uint8_t * key_file)
+uint32_t encrypt(uint8_t * in, uint32_t inlen, uint8_t * out, uint8_t * key)
 {
 	uint8_t * mac_key;
 	uint8_t * ciphertext = out + MAC_SIZE + BLOCK_SIZE;
 	uint8_t * iv = out + MAC_SIZE;
 	uint8_t * iv_cipher = out + MAC_SIZE;
 	uint8_t * mac = out;
-	uint8_t key[3*KEY_SIZE];
 	uint8_t iv2[BLOCK_SIZE];
 	int ret;
 
 	// Padd input buffer block with zeros if needed
 	inlen = padd_block(in, inlen);
-
-	// read keys from file
-	if(read_key(key, key_file, 2*KEY_SIZE) == 0)
-		return 0;
 
 	memset (key+2*KEY_SIZE, 0, KEY_SIZE);
 
@@ -107,22 +102,17 @@ uint32_t encrypt(uint8_t * in, uint32_t inlen, uint8_t * out, uint8_t * key_file
 // inlen - ciphertext size
 // out - output plaintext
 // key_file - file of key used to encrypt ciphertext
-uint32_t decrypt(uint8_t * in, uint32_t inlen, uint8_t * out, uint8_t * key_file)
+uint32_t decrypt(uint8_t * in, uint32_t inlen, uint8_t * out, uint8_t * key)
 {
 	uint8_t * mac = in;
 	uint8_t * iv = in + MAC_SIZE;
 	uint8_t * ciphertext = in + MAC_SIZE + BLOCK_SIZE;
 	uint8_t * iv_cipher = in + MAC_SIZE;
 	uint8_t computed_mac[MAC_SIZE];
-	uint8_t key[3*KEY_SIZE];
 	uint8_t * mac_key;
 	int ret;
 
 	if (inlen <= (BLOCK_SIZE+MAC_SIZE))
-		return 0;
-
-	// read key from file
-	if (read_key(key, key_file, 2*KEY_SIZE) == 0)
 		return 0;
 
 	memset (key+2*KEY_SIZE, 0, KEY_SIZE);
