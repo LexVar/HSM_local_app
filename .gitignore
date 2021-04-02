@@ -1,5 +1,4 @@
-/bin/keys/*
-/bin/msgs/*
+/bin/*
 *.swp
 *.txt
 *.enc
