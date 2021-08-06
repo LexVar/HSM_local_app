@@ -1,5 +1,7 @@
 # Secure Message Exchange Protocol
 
+[![C/C++ CI](https://github.com/LexVar/HSM_local_app/actions/workflows/compile.yml/badge.svg)](https://github.com/LexVar/HSM_local_app/actions/workflows/compile.yml)
+
 This repository contains a local implementation of my thesis work.
 
 It emulates two programs:

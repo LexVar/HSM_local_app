@@ -42,7 +42,7 @@ int main (void)
 {
 	init();
 
-	trade_keys();
+	// trade_keys();
 	
 	// ----------------- Key set stuff -----------------
 	// init_keys((uint8_t *)"41203491263490123428136482364iub", 32);

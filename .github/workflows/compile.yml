@@ -11,14 +11,27 @@ jobs:
 
     runs-on: ubuntu-latest
 
+    container:
+      image: ubuntu:focal
+
     steps:
     - uses: actions/checkout@v2
+
+    - name: Install dependency libraries
+      run: |
+        apt-get update 
+        apt-get install -y openssl libmbedtls12 libmbedtls-dev openssl libssl-dev build-essential
+
     - name: make client
       run: make client
+
     - name: make server
       run: make server
+
     # Uploads the compiled binaries to an artefact
     - uses: actions/upload-artifact@v2
       with:
         name: binaries # output file
-        path: 'client server'   # path to file
+        path: |
+          client
+          server
